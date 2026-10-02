@@ -1,9 +1,8 @@
 import { normalize, safeSource } from './core';
 
-export function creationPath(category: 'feuilles' | 'concours', directory: string, identifier: string): string {
-  if (directory !== category && !directory.startsWith(category + '/')) throw new Error('Le dossier doit appartenir à la bonne section.');
+export function creationPath(directory: string, identifier: string): string {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(identifier)) throw new Error('Nom de fichier invalide.');
-  return safeSource(`${directory}/${identifier}.typ`);
+  return safeSource(`${directory ? directory + '/' : ''}${identifier}.typ`);
 }
 
 export function contestFromTemplate(template: string, title: string): string {
@@ -56,7 +55,7 @@ export function outline(text: string): OutlineItem[] {
     const children = parents.at(-1)?.children ?? items;
     const tail = text.slice(match.index! + match[0].length);
     if (match[1] === 'question') {
-      const body = /^\s*(?:enonce:\s*)?\[([^\]]*)/.exec(tail)?.[1] ?? '';
+      const body = /^\s*(?:points:\s*(?:\d+(?:\.\d+)?|none)\s*,\s*)?(?:enonce:\s*)?\[([^\]]*)/.exec(tail)?.[1] ?? '';
       const title = body.replace(/[\n\r]+/g, ' ').replace(/[#\[\]$]/g, '').trim().slice(0, 95);
       children.push({ title: `${number++}. ${title || 'Question'}`, line: lineAt(match.index!), kind: 'question' });
     } else {
@@ -108,7 +107,7 @@ export function exerciseFromTemplate(template: string, data: NewExercise): strin
   let depth = 1; let end = start;
   while (end < code.length && depth) { if (code[end] === '(') depth++; if (code[end] === ')') depth--; end++; }
   if (depth) throw new Error('Modèle incompatible : contenu non fermé.');
-  return result.slice(0, start) + '\n    question(\n      [Énoncé à compléter.],\n      solution: none,\n    ),\n  ' + result.slice(end - 1);
+  return result.slice(0, start) + '\n    question(\n      [Énoncé à compléter.],\n      points: none,\n      solution: none,\n    ),\n  ' + result.slice(end - 1);
 }
 
 export function sheetFromTemplate(template: string, title: string, files: string[]): string {

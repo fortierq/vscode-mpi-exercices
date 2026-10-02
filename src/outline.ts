@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
-import { outline, OutlineItem } from './typst';
+import { outline, OutlineItem, mask } from './typst';
 import { Sheets, SheetMember, memberItem } from './sheets';
 
 type Node = { title: string; children?: Node[]; uri?: vscode.Uri; line?: number; icon?: string; collapsed?: boolean; member?: SheetMember };
@@ -27,16 +27,18 @@ export class CurrentFile implements vscode.TreeDataProvider<Node>, vscode.Dispos
     const node = (item: OutlineItem): Node => ({ title: item.title, line: item.line, uri: document.uri,
       icon: item.kind === 'question' ? 'list-ordered' : item.kind === 'partie' ? 'symbol-namespace' : 'symbol-property',
       children: item.children?.map(node), collapsed: item.kind === 'partie' });
-    this.nodes = [{ title: path.basename(document.uri.fsPath), uri: document.uri, line: 0, icon: 'file-code' },
-      { title: 'Métadonnées', uri: document.uri, line: items.find(item => item.kind === 'meta')?.line ?? 0, icon: 'tag' },
-      ...items.filter(item => item.kind !== 'meta' && item.kind !== 'import').map(node)];
+    const bareme = /\b(?:points|bareme)\s*:/.exec(mask(document.getText()));
+    const links: Node[] = [{ title: path.basename(document.uri.fsPath), uri: document.uri, line: 0, icon: 'file-code' },
+      { title: 'Métadonnées', uri: document.uri, line: items.find(item => item.kind === 'meta')?.line ?? 0, icon: 'tag' }];
+    if (bareme) links.push({ title: 'Barème', uri: document.uri, line: document.positionAt(bareme.index).line, icon: 'list-ordered' });
+    this.nodes = [...links, ...items.filter(item => item.kind !== 'meta' && item.kind !== 'import').map(node)];
     this.emitter.fire();
     if (this.sheets) {
       const sheet = this.sheets.locate(document.uri);
       if (sheet && document.uri.fsPath === path.join(sheet.bank.root, sheet.source)) {
         void this.sheets.members(sheet.bank, sheet.source).then(members => {
           if (this.current !== document || revision !== this.revision) return;
-          this.nodes = [...this.nodes.slice(0, 2), ...members.map(member => ({ title: member.title, member }))];
+          this.nodes = [...links, ...members.map(member => ({ title: member.title, member }))];
           this.emitter.fire();
         }).catch(() => undefined);
       }

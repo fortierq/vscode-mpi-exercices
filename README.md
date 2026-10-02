@@ -2,15 +2,16 @@
 
 Installer le VSIX de `releases/`, puis ouvrir une banque `exercices-mpi` approuvée. Prérequis : VS Code ≥ 1.100 et Nix ou Make/Typst/Python. Tinymist est facultatif (testé avec 0.15.8).
 
-- **Fichier actuel** : métadonnées, questions et exercices cliquables ; parties repliées.
-- **Exercices**, **Feuilles**, **Concours** : recherche, filtres, dossiers repliables ou liste.
+- **Fichier actuel** : liens métadonnées et barème, questions et exercices cliquables ; parties repliées.
+- **Exercices** : banque réutilisable. **Documents** : TD, devoirs, concours et types personnalisés, recherche commune, filtre par type, dossiers repliables ou liste. Aucun classement imposé : le type est déclaré dans `fiche.with(type: "…", ...)`.
 - La recherche sert uniquement à choisir et ouvrir un fichier, avec ses métadonnées. La saisie affine la liste mais ne filtre jamais le panneau. Entrée ouvre le fichier sélectionné ; Échap annule. Les filtres de métadonnées déjà actifs restent appliqués.
 - Le catalogue est actualisé automatiquement toutes les 5 secondes si des sources Typst ont changé sur disque (imports compris). Aucune reconstruction sans changement ; les erreurs sont signalées sans remplacer le dernier catalogue valide.
-- **Créer une nouvelle feuille** crée une feuille vide. Sélectionner la feuille dans **Feuilles**, puis utiliser **+** sur les exercices, ou les glisser sur la feuille.
+- **Créer un document** propose les modèles de `templates/`, puis un emplacement libre. Ajouter un type revient à ajouter un modèle avec un autre `type`. TD et devoirs démarrent vides : les sélectionner dans **Documents**, puis ajouter ou glisser des exercices.
+- Barème dans `question(..., points: ...)`, sans notes d'élèves. Les points suivent les questions. Les anciens tableaux `bareme` restent compatibles ; un document portant ce tableau doit être réorganisé dans la source pour ne pas décaler les points.
 - Réordonner les exercices par glisser-déposer ou avec les flèches ; **×** retire aussi l'import. Ces modifications sont enregistrées automatiquement et restent annulables. Un import utilisé ailleurs n'est pas supprimé silencieusement.
 - Déplacer les fichiers en les glissant sur un dossier ou dans le fond de leur section. Les références Typst littérales sont actualisées ; vérifier les chemins calculés et les références externes.
 - Bouton **Nouveau dossier** ; clic droit pour créer un exercice depuis le modèle ou supprimer un fichier dans la corbeille. Un fichier encore référencé ne peut pas être supprimé.
-- Clic droit sur un dossier de **Feuilles** ou **Concours** : créer un fichier depuis son modèle dans ce dossier. Les boutons des sections permettent aussi de créer un fichier sans dossier sélectionné. VS Code ne fournit pas de menu personnalisable sur la zone vide de ces arborescences.
+- Clic droit sur un dossier : créer un fichier dans ce dossier, avec choix du type pour les documents. Les boutons permettent aussi de créer à la racine ou dans un autre dossier. VS Code ne fournit pas de menu personnalisable sur la zone vide de ces arborescences.
 
 ## Raccourcis
 
@@ -18,13 +19,13 @@ Dans un éditeur Typst ou une liste du panneau Exercices Typst (hors champs de s
 
 | Touche | Seule | Avec Maj |
 | --- | --- | --- |
-| F2 | Chercher un exercice | Chercher une feuille |
-| F3 | Filtrer les exercices | Filtrer les feuilles |
-| F4 | Ajouter un exercice | Créer une feuille vide |
+| F2 | Chercher un exercice | Chercher un document |
+| F3 | Filtrer les exercices | Filtrer les documents |
+| F4 | Ajouter un exercice | Créer un document |
 | F5 | Afficher l'énoncé | Télécharger l'énoncé |
 | F6 | Afficher le corrigé | Télécharger le corrigé |
 
-Le téléchargement propose un emplacement puis compile et enregistre le PDF, sans ouvrir l'aperçu. Enregistrer les sources avant l'export. La recherche de concours et l'ouverture du panneau restent accessibles par la palette.
+Le téléchargement propose un emplacement puis compile et enregistre le PDF, sans ouvrir l'aperçu. Enregistrer les sources avant l'export. Maj+F2 inclut les concours ; l'ouverture du panneau reste accessible par la palette.
 
 F1 reste inchangé. Ailleurs, les raccourcis habituels de VS Code restent disponibles. Sur Mac, **Fn** peut être nécessaire selon les réglages du clavier.
 

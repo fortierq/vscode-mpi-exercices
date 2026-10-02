@@ -4,6 +4,7 @@ import { realpath } from 'node:fs/promises';
 import { Bank } from './runner';
 import { safeSource } from './core';
 import { mask } from './typst';
+import { technicalFolders } from './documents';
 
 export interface Location { bank: Bank; source: string }
 export async function directories(bank: Bank, category: string): Promise<Location[]> {
@@ -11,21 +12,21 @@ export async function directories(bank: Bank, category: string): Promise<Locatio
   const visit = async (source: string) => {
     result.push({ bank, source });
     for (const [name, type] of await vscode.workspace.fs.readDirectory(vscode.Uri.file(path.join(bank.root, source)))) {
-      if (type === vscode.FileType.Directory) await visit(source + '/' + name);
+      if (type === vscode.FileType.Directory && !name.startsWith('.') && !technicalFolders.has(name)) await visit(path.posix.join(source, name));
     }
   };
   try { await visit(category); } catch (error) { if (!(error instanceof vscode.FileSystemError && error.code === 'FileNotFound')) throw error; }
   return result;
 }
 export async function checkDirectory(location: Location): Promise<void> {
-  safeSource(location.source + '/placeholder.typ');
+  safeSource(path.posix.join(location.source, 'placeholder.typ'));
   const actual = await realpath(path.join(location.bank.root, location.source));
-  if (!actual.startsWith(location.bank.root + path.sep)) throw new Error('Le dossier doit rester dans la banque (pas de lien symbolique externe).');
+  if (actual !== location.bank.root && !actual.startsWith(location.bank.root + path.sep)) throw new Error('Le dossier doit rester dans la banque (pas de lien symbolique externe).');
 }
 export async function newFolder(location: Location): Promise<void> {
-  await checkDirectory(location);
   const name = await vscode.window.showInputBox({ title: `Nouveau dossier dans ${location.source}`, validateInput: value => /^[\p{L}\p{N}_-]+$/u.test(value) ? undefined : 'Lettres, chiffres, tirets et traits de soulignement uniquement.' });
   if (!name) return;
+  await checkDirectory(location);
   const uri = vscode.Uri.file(path.join(location.bank.root, location.source, name));
   try { await vscode.workspace.fs.stat(uri); throw new Error('Ce dossier existe déjà.'); } catch (error) { if (!(error instanceof vscode.FileSystemError && error.code === 'FileNotFound')) throw error; }
   await vscode.workspace.fs.createDirectory(uri);
@@ -62,7 +63,6 @@ async function documents(bank: Bank): Promise<vscode.TextDocument[]> {
 }
 export async function moveSource(location: Location, destination: string): Promise<void> {
   safeSource(location.source); safeSource(destination);
-  if (location.source.split('/')[0] !== destination.split('/')[0]) throw new Error('Déplacez le fichier dans un dossier de la même section.');
   if (location.source === destination) return;
   await checkDirectory({ ...location, source: path.posix.dirname(destination) });
   const from = vscode.Uri.file(path.join(location.bank.root, location.source));

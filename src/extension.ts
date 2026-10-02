@@ -3,10 +3,11 @@ import * as path from 'node:path';
 import { existsSync } from 'node:fs';
 import { readFile, realpath } from 'node:fs/promises';
 import { Filters, facets, labels, matches, parseCatalogue, pdfTarget, pdfFilename, safeSource } from './core';
+import { identify, sourceExclusions, typeLabels, typeLabel } from './documents';
 import { Bank, Runner } from './runner';
 import { Previews } from './preview';
 import { CurrentFile, reveal } from './outline';
-import { BankEntry, newExercise, newSheet, newContest, selectBank } from './authoring';
+import { BankEntry, newExercise, newSheet, selectBank, documentTemplates } from './authoring';
 import { Browser, BrowserNode, Source } from './browser';
 import { isFolder } from './tree';
 import { Sheets, SheetMember } from './sheets';
@@ -20,13 +21,11 @@ import { errorStatus } from './errors';
 export async function activate(context: vscode.ExtensionContext) {
   const runner = new Runner();
   const library = new Browser('exercices', context.workspaceState);
-  const sheets = new Browser('feuilles', context.workspaceState);
-  const contests = new Browser('concours', context.workspaceState);
-  const browsers = [library, sheets, contests];
-  const drag = <T>(category: string) => new Drag<T>(category, () => sheetEditor, relocate, error => report(error));
-  const view = vscode.window.createTreeView('exercicesMpi.library', { treeDataProvider: library, showCollapseAll: false, canSelectMany: true, dragAndDropController: drag<BrowserNode>('exercices') });
-  const sheetView = vscode.window.createTreeView('exercicesMpi.sheets', { treeDataProvider: sheets, showCollapseAll: false, dragAndDropController: drag<BrowserNode>('feuilles') });
-  const contestView = vscode.window.createTreeView('exercicesMpi.contests', { treeDataProvider: contests, showCollapseAll: false, dragAndDropController: drag<BrowserNode>('concours') });
+  const sheets = new Browser('documents', context.workspaceState);
+  const browsers = [library, sheets];
+  const drag = <T>() => new Drag<T>(() => sheetEditor, relocate, error => report(error));
+  const view = vscode.window.createTreeView('exercicesMpi.library', { treeDataProvider: library, showCollapseAll: false, canSelectMany: true, dragAndDropController: drag<BrowserNode>() });
+  const sheetView = vscode.window.createTreeView('exercicesMpi.sheets', { treeDataProvider: sheets, showCollapseAll: false, dragAndDropController: drag<BrowserNode>() });
   let banks: Bank[] = [];
   let watchers: vscode.Disposable[] = [];
   let disposed = false;
@@ -35,12 +34,12 @@ export async function activate(context: vscode.ExtensionContext) {
   if (saved) { library.filters = saved.filters; }
   const entries = (): BankEntry[] => library.entries.flatMap(item => item.ex ? [{ bank: item.bank, ex: item.ex }] : []);
   const sheetEditor = new Sheets(() => banks, entries);
-  const currentFile = new CurrentFile(context, sheetEditor, drag('feuilles'));
+  const currentFile = new CurrentFile(context, sheetEditor, drag());
   context.subscriptions.push(sheetView.onDidChangeSelection(event => {
     const node = event.selection[0];
     if (node && !isFolder(node)) {
       const source = 'sheet' in node ? node.sheet : node.source;
-      if (source.startsWith('feuilles/')) sheetEditor.selected = { bank: node.bank, source };
+      if ('sheet' in node || node.documentType) sheetEditor.selected = { bank: node.bank, source };
     }
   }));
   const report = (error: unknown) => {
@@ -50,36 +49,39 @@ export async function activate(context: vscode.ExtensionContext) {
   };
   const update = () => {
     for (const [index, browser] of browsers.entries()) {
-      const treeView = [view, sheetView, contestView][index];
+      const treeView = [view, sheetView][index];
       treeView.description = `${browser.visible.length} / ${browser.entries.length}`;
-      treeView.message = [...facets.filter(key => browser.filters[key]).map(key => `${labels[key]} : ${browser.filters[key]}`), browser.filters.difficulteMax && `Difficulté ≤ ${browser.filters.difficulteMax}`].filter(Boolean).join(' · ') || undefined;
+      treeView.message = [browser.filters.type && typeLabel(browser.filters.type), ...facets.filter(key => browser.filters[key]).map(key => `${labels[key]} : ${browser.filters[key]}`), browser.filters.difficulteMax && `Difficulté ≤ ${browser.filters.difficulteMax}`].filter(Boolean).join(' · ') || undefined;
       browser.changed.fire();
-      void vscode.commands.executeCommand('setContext', `exercicesMpi.searchActive.${['library', 'sheets', 'contests'][index]}`, browser.searching);
+      void vscode.commands.executeCommand('setContext', `exercicesMpi.searchActive.${['library', 'sheets'][index]}`, browser.searching);
       void context.workspaceState.update(browser === library ? 'search' : `search.${browser.category}`, { filters: browser.filters });
     }
   };
-  for (const browser of [sheets, contests]) {
+  for (const browser of [sheets]) {
     const saved = context.workspaceState.get<{ filters: Filters }>(`search.${browser.category}`);
     if (saved) { browser.filters = saved.filters; }
   }
   async function scan(bank: Bank, browser: Browser): Promise<void> {
-    const files = await vscode.workspace.findFiles(new vscode.RelativePattern(vscode.Uri.file(bank.root), `${browser.category}/**/*.typ`), null);
+    const files = await vscode.workspace.findFiles(new vscode.RelativePattern(vscode.Uri.file(bank.root), '**/*.typ'), sourceExclusions);
     const metadata = new Map(entries().filter(entry => entry.bank.root === bank.root).map(entry => [entry.ex.fichier, entry.ex]));
-    const sources: Source[] = await Promise.all(files.map(async uri => {
+    const sources = await Promise.all(files.map(async uri => {
       const source = path.relative(bank.root, uri.fsPath).split(path.sep).join('/');
-      const item: Source = { bank, source, ex: metadata.get(source) };
-      if (browser === library && !item.ex) item.ex = sourceMetadata((await vscode.workspace.openTextDocument(uri)).getText(), source);
+      const text = (await vscode.workspace.openTextDocument(uri)).getText();
+      const info = identify(text, source);
+      if (!info || (browser === library) !== (info.kind === 'exercice')) return undefined;
+      const item: Source = { bank, source, documentType: info.type, ex: metadata.get(source) };
+      if (browser === library && !item.ex) item.ex = sourceMetadata(text, source);
       if (browser !== library) {
-        item.metadata = [sourceMetadata((await vscode.workspace.openTextDocument(uri)).getText(), source)];
-        if (browser === sheets) {
+        item.metadata = [sourceMetadata(text, source)];
+        if (info.direct) {
           try { item.members = await sheetEditor.members(bank, source); item.metadata.push(...item.members.flatMap(member => metadata.get(member.source) ?? [])); }
           catch (error) { item.compositionError = String(error); }
         }
       }
       return item;
     }));
-    browser.directories = [...browser.directories.filter(item => item.bank.root !== bank.root), ...await directories(bank, browser.category)];
-    browser.entries = [...browser.entries.filter(entry => entry.bank.root !== bank.root), ...sources];
+    browser.directories = [...browser.directories.filter(item => item.bank.root !== bank.root), ...await directories(bank, '')];
+    browser.entries = [...browser.entries.filter(entry => entry.bank.root !== bank.root), ...sources.filter((source): source is Source => !!source)];
     update();
   }
   async function load(bank: Bank): Promise<void> {
@@ -105,7 +107,7 @@ export async function activate(context: vscode.ExtensionContext) {
         if (!existsSync(path.join(root, 'build/catalogue.json'))) await runner.run(bank, ['catalogue']);
         await load(bank);
       } catch (error) { report(error); await scan(bank, library); }
-      await Promise.all([scan(bank, sheets), scan(bank, contests)]);
+      await scan(bank, sheets);
       const catalogue = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(root), 'build/catalogue.json'));
       let timer: NodeJS.Timeout | undefined;
       const reload = () => { clearTimeout(timer); timer = setTimeout(() => { void load(bank).catch(report); }, 200); };
@@ -116,16 +118,16 @@ export async function activate(context: vscode.ExtensionContext) {
         if (disposed || !banks.includes(bank)) return;
         await load(bank);
         await scan(bank, sheets);
-        await scan(bank, contests);
       }, report);
       // Imports can affect computed metadata: conservatively track all Typst sources.
-      const sources = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(root), '{exercices,concours,lib,templates}/**/*.typ'));
-      sources.onDidChange(() => refresh.mark());
-      sources.onDidCreate(() => refresh.mark());
-      sources.onDidDelete(() => refresh.mark());
+      const sources = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(root), '**/*.typ'));
+      const mark = (uri: vscode.Uri) => { if (!path.relative(root, uri.fsPath).split(path.sep).includes('build')) refresh.mark(); };
+      sources.onDidChange(mark);
+      sources.onDidCreate(mark);
+      sources.onDidDelete(mark);
       watchers.push(refresh, sources);
       for (const browser of browsers) {
-        const files = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(root), `${browser.category}/**/*.typ`));
+        const files = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(root), '**/*.typ'));
         const rescan = () => { void scan(bank, browser).catch(report); };
         files.onDidCreate(rescan); files.onDidDelete(rescan);
         if (browser !== library) files.onDidChange(rescan);
@@ -158,9 +160,10 @@ export async function activate(context: vscode.ExtensionContext) {
       const bank = banks.filter(bank => file.startsWith(bank.root + path.sep)).sort((a, b) => b.root.length - a.root.length)[0];
       if (bank) {
         const source = path.relative(bank.root, file).split(path.sep).join('/');
-        if (/^(exercices|feuilles|concours)\//.test(source)) return checkSource({ bank, source });
+        const info = identify((await vscode.workspace.openTextDocument(uri)).getText(), source);
+        if (info) return checkSource({ bank, source, documentType: info.type });
       }
-      if (argument) throw new Error('Choisissez une source dans exercices/, feuilles/ ou concours/.');
+      if (argument) throw new Error('Choisissez un exercice exportant ex ou un document utilisant fiche.with(...).');
     }
     const picked = await vscode.window.showQuickPick(library.visible.map(item => ({ label: item.ex?.titre ?? item.source, description: item.bank.name, detail: item.source, item })), { placeHolder: 'Choisir un exercice', matchOnDetail: true });
     return picked ? checkSource(picked.item) : undefined;
@@ -192,40 +195,41 @@ export async function activate(context: vscode.ExtensionContext) {
     for (const browser of browsers) await scan(source.bank, browser);
   }
   for (const [index, browser] of browsers.entries()) {
-  const suffix = ['', 'Sheets', 'Contests'][index];
+  const suffix = ['', 'Sheets'][index];
   register('search' + suffix, async () => {
     await discovery;
     const result = await searchPicker(browser);
     if (!result) return;
     const source = await checkSource(result);
-    if (browser === sheets) sheetEditor.selected = source;
-    await [view, sheetView, contestView][index].reveal(source, { select: true });
+    if (source.documentType) sheetEditor.selected = source;
+    await [view, sheetView][index].reveal(source, { select: true });
     await vscode.window.showTextDocument(vscode.Uri.file(path.join(source.bank.root, source.source)));
   });
   register('filters' + suffix, async () => {
-    const options = [...facets.map(key => ({ label: labels[key], description: browser.filters[key] ?? 'Tous', key })), { label: 'Difficulté maximale', description: String(browser.filters.difficulteMax ?? 'Toutes'), key: 'difficulteMax' as const }];
-    const chosen = await vscode.window.showQuickPick(options, { title: 'Filtrer les exercices' }); if (!chosen) return;
+    const options = [...(browser === sheets ? [{ label: 'Type de document', description: browser.filters.type ? typeLabel(browser.filters.type) : 'Tous', key: 'type' as const }] : []), ...facets.map(key => ({ label: labels[key], description: browser.filters[key] ?? 'Tous', key })), { label: 'Difficulté maximale', description: String(browser.filters.difficulteMax ?? 'Toutes'), key: 'difficulteMax' as const }];
+    const chosen = await vscode.window.showQuickPick(options, { title: browser === sheets ? 'Filtrer les documents' : 'Filtrer les exercices' }); if (!chosen) return;
     const key = chosen.key;
     const metadata = browser.entries.flatMap(item => item.ex ? [item.ex] : item.metadata ?? []);
-    const values = key === 'difficulteMax' ? ['1', '2', '3', '4', '5'] : [...new Set(metadata.flatMap(ex => key === 'concours' ? ex.concours?.nom ? [ex.concours.nom] : [] : ex[key]))].sort((a, b) => a.localeCompare(b, 'fr'));
-    const value = await vscode.window.showQuickPick([{ label: 'Tous / toutes', value: '' }, ...values.map(value => ({ label: value, value }))], { title: chosen.label }); if (!value) return;
+    const types = [...Object.keys(typeLabels), ...browser.entries.flatMap(item => item.documentType ?? []), ...(await Promise.all(banks.map(documentTemplates))).flat().map(template => template.type)];
+    const values = key === 'type' ? [...new Set(types)] : key === 'difficulteMax' ? ['1', '2', '3', '4', '5'] : [...new Set(metadata.flatMap(ex => key === 'concours' ? ex.concours?.nom ? [ex.concours.nom] : [] : ex[key]))].sort((a, b) => a.localeCompare(b, 'fr'));
+    const value = await vscode.window.showQuickPick([{ label: 'Tous / toutes', value: '' }, ...values.map(value => ({ label: key === 'type' ? typeLabel(value) : value, value }))], { title: chosen.label }); if (!value) return;
     if (!value.value) delete browser.filters[key]; else if (key === 'difficulteMax') browser.filters.difficulteMax = +value.value; else browser.filters[key] = value.value;
     update();
-    await vscode.commands.executeCommand(`exercicesMpi.${['library', 'sheets', 'contests'][index]}.focus`);
+    await vscode.commands.executeCommand(`exercicesMpi.${['library', 'sheets'][index]}.focus`);
   });
   register('reset' + suffix, () => { browser.filters = {}; update(); });
   }
   register('openPanel', () => vscode.commands.executeCommand('workbench.view.extension.exercicesMpi'));
-  for (const section of ['current', 'library', 'sheets', 'contests']) register('collapse' + section, async () => {
+  for (const section of ['current', 'library', 'sheets']) register('collapse' + section, async () => {
     await vscode.commands.executeCommand(`exercicesMpi.${section}.focus`);
     await vscode.commands.executeCommand(`workbench.actions.treeView.exercicesMpi.${section}.collapseAll`);
   });
   async function revealSheet(source: Source): Promise<void> {
     sheets.filters = {}; update();
-    sheetEditor.selected = source;
+    if (source.documentType) sheetEditor.selected = source;
     await sheetView.reveal(source, { select: true, expand: true });
   }
-  register('refresh', async () => { await discovery; if (!banks.length) await discoverQueued(); for (const bank of banks) { await runner.run(bank, ['catalogue']); await load(bank); await scan(bank, sheets); await scan(bank, contests); } });
+  register('refresh', async () => { await discovery; if (!banks.length) await discoverQueued(); for (const bank of banks) { await runner.run(bank, ['catalogue']); await load(bank); await scan(bank, sheets); } });
   register('source', async (argument?: BrowserNode | vscode.Uri) => { const source = await chooseSource(argument); if (source) await vscode.window.showTextDocument(vscode.Uri.file(path.join(source.bank.root, source.source))); });
   for (const variant of ['enonce', 'corrige'] as const) register(variant, async (argument?: BrowserNode | vscode.Uri) => { const source = await chooseSource(argument); if (source) await previews.open(source.bank, source.source, variant); });
   for (const variant of ['enonce', 'corrige'] as const) register('download' + (variant === 'corrige' ? 'Corrige' : 'Enonce'), async (argument?: BrowserNode | vscode.Uri) => {
@@ -236,25 +240,25 @@ export async function activate(context: vscode.ExtensionContext) {
   register('output', () => runner.output.show(true));
   register('sync', () => previews.sync());
   register('reveal', reveal);
-  register('toggleLibrary', () => library.toggle()); register('toggleSheets', () => sheets.toggle()); register('toggleContests', () => contests.toggle());
+  register('toggleLibrary', () => library.toggle()); register('toggleSheets', () => sheets.toggle());
   register('newSheet', async (argument?: Location) => { await discovery; const bank = argument?.bank ?? await selectBank(banks); const uri = await newSheet(bank, argument?.bank ? argument.source : undefined); await scan(bank, sheets); const source = sheets.entries.find(item => path.join(bank.root, item.source) === uri.fsPath); if (source) { await revealSheet(source); } });
-  register('newContest', async (argument?: Location) => { await discovery; const bank = argument?.bank ?? await selectBank(banks); const uri = await newContest(bank, argument?.bank ? argument.source : undefined); await scan(bank, contests); await vscode.window.showTextDocument(uri); });
-  register('newExercise', async (argument?: Location) => { await discovery; const bank = argument?.bank ?? await selectBank(banks); await runner.run(bank, ['catalogue']); await load(bank); const uri = await newExercise(bank, entries(), argument?.source?.startsWith('exercices') ? argument.source : undefined); await runner.run(bank, ['catalogue']); await load(bank); await vscode.window.showTextDocument(uri); });
+  register('newExercise', async (argument?: Location) => { await discovery; const bank = argument?.bank ?? await selectBank(banks); await runner.run(bank, ['catalogue']); await load(bank); const uri = await newExercise(bank, entries(), argument?.source); await runner.run(bank, ['catalogue']); await load(bank); await vscode.window.showTextDocument(uri); });
   for (const [name, direction] of [['memberUp', -1], ['memberDown', 1], ['memberRemove', undefined]] as const) register(name, async (argument: SheetMember | { member: SheetMember }) => { await sheetEditor.change('member' in argument ? argument.member : argument, direction); });
   register('addCurrent', async (argument?: BrowserNode) => {
     const source = await chooseSource(argument); if (!source) return;
-    if (!source.source.startsWith('exercices/')) throw new Error('Choisissez un exercice à ajouter.');
+    if (!library.entries.some(item => item.bank.root === source.bank.root && item.source === source.source)) throw new Error('Choisissez un exercice à ajouter.');
     let sheet = sheetEditor.target;
     if (!sheet || sheet.bank.root !== source.bank.root) {
-      const picked = await vscode.window.showQuickPick(sheets.entries.filter(item => item.bank.root === source.bank.root).map(item => ({ label: item.metadata?.[0]?.titre ?? item.source, description: item.source, item })), { title: 'Choisir la feuille en cours' });
+      const picked = await vscode.window.showQuickPick(sheets.entries.filter(item => item.bank.root === source.bank.root && item.members).map(item => ({ label: item.metadata?.[0]?.titre ?? item.source, description: item.source, item })), { title: 'Choisir le document en cours' });
       if (!picked) return; sheet = picked.item; sheetEditor.selected = sheet;
     }
     await sheetEditor.add(source.bank, source.source, sheet.source);
-    void vscode.window.showInformationMessage(`Ajouté à ${sheet.source}. Feuille enregistrée.`);
+    void vscode.window.showInformationMessage(`Ajouté à ${sheet.source}. Document enregistré.`);
   });
-  for (const [suffix, browser] of [['Library', library], ['Sheets', sheets], ['Contests', contests]] as const) register('newFolder' + suffix, async (argument?: Location) => {
+  for (const [suffix, browser] of [['Library', library], ['Sheets', sheets]] as const) register('newFolder' + suffix, async (argument?: Location) => {
     await discovery;
-    const location = argument?.bank ? argument : { bank: await selectBank(banks), source: browser.category };
+    const bank = argument?.bank ?? await selectBank(banks);
+    const location = { bank, source: argument?.source ?? '' };
     await newFolder(location); await scan(location.bank, browser);
   });
   register('deleteSource', async (argument: BrowserNode) => {
@@ -266,7 +270,7 @@ export async function activate(context: vscode.ExtensionContext) {
   });
   let sheetTimer: NodeJS.Timeout | undefined;
   context.subscriptions.push(sheetEditor.changed.event(() => { clearTimeout(sheetTimer); sheetTimer = setTimeout(() => { for (const bank of banks) void scan(bank, sheets).catch(report); }, 120); }), { dispose: () => clearTimeout(sheetTimer) });
-  context.subscriptions.push(runner, ...browsers, view, sheetView, contestView, previews, currentFile, sheetEditor, errorStatus,
+  context.subscriptions.push(runner, ...browsers, view, sheetView, previews, currentFile, sheetEditor, errorStatus,
     vscode.workspace.onDidChangeWorkspaceFolders(() => { void discoverQueued().catch(report); }),
     vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('exercicesMpi.bankPath')) void discoverQueued().catch(report); }),
     { dispose: () => { disposed = true; for (const watcher of watchers) watcher.dispose(); } });

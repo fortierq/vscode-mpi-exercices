@@ -16,6 +16,8 @@ import { Sheets, memberItem } from '../src/sheets';
 import { relocated, moveSource, directories } from '../src/files';
 import { sheetList, sourceMetadata } from '../src/sheet-model';
 import { Drag } from '../src/drag';
+import { documentTemplates } from '../src/authoring';
+import { identify } from '../src/documents';
 
 async function until(condition: () => boolean | Promise<boolean>, message: string): Promise<void> {
   const deadline = Date.now() + 20_000;
@@ -29,7 +31,9 @@ export async function run(): Promise<void> {
   const api = await extension.activate();
   const manifest = extension.packageJSON.contributes;
   const commands = await vscode.commands.getCommands(true);
-  for (const section of ['current', 'library', 'sheets', 'contests']) {
+  assert.deepEqual(manifest.views.exercicesMpi.map((view: { id: string }) => view.id), ['exercicesMpi.current', 'exercicesMpi.library', 'exercicesMpi.sheets']);
+  assert.equal(manifest.views.exercicesMpi.at(-1).name, 'Documents');
+  for (const section of ['current', 'library', 'sheets']) {
     await vscode.commands.executeCommand(`exercicesMpi.${section}.focus`);
     assert.ok((await vscode.commands.getCommands(true)).includes(`workbench.actions.treeView.exercicesMpi.${section}.collapseAll`));
     await vscode.commands.executeCommand(`exercicesMpi.collapse${section}`);
@@ -59,8 +63,11 @@ export async function run(): Promise<void> {
   const runner = new Runner();
   const sockets: WebSocket[] = [];
   try {
-    for (const file of ['lib', 'templates', 'Makefile', 'flake.nix', 'flake.lock']) await cp(path.join(bank, file), path.join(temporary, file), { recursive: true });
-    for (const directory of ['exercices/graphes', 'feuilles', 'concours']) await mkdir(path.join(temporary, directory), { recursive: true });
+    for (const file of ['lib', 'templates', 'scripts', 'Makefile', 'flake.nix', 'flake.lock']) await cp(path.join(bank, file), path.join(temporary, file), { recursive: true });
+    for (const directory of ['exercices/graphes', 'feuilles', 'devoirs/2026-2027', 'concours']) await mkdir(path.join(temporary, directory), { recursive: true });
+    const customTemplate = (await readFile(path.join(temporary, 'templates/devoir.typ'), 'utf8')).replace('type: "devoir"', 'type: "colle"');
+    await writeFile(path.join(temporary, 'templates/colle.typ'), customTemplate);
+    assert.deepEqual((await documentTemplates(previewBank)).map(template => template.type).sort(), ['colle', 'concours', 'devoir', 'td']);
     const relative = 'exercices/graphes/test-creation.typ';
     const generated = exerciseFromTemplate(await readFile(path.join(bank, 'templates/exercice.typ'), 'utf8'), {
       title: 'Test création', chapters: ['graphes'], algorithms: [], structures: [], languages: [], levels: ['MPI'], difficulty: 2, minutes: 20
@@ -182,15 +189,33 @@ export async function run(): Promise<void> {
     assert.ok(parent && isFolder(parent));
     assert.equal(browser.getTreeItem(parent).resourceUri?.fsPath, parent.folder);
     assert.equal(browser.getParent(browser.entries[0]), parent, 'Identité du dossier stable');
-    assert.equal(browser.getParent(parent), undefined);
+    assert.ok(browser.getParent(parent), 'Dossier physique exercices conservé');
     browser.toggle(); assert.ok(!isFolder(browser.getChildren()[0]));
     assert.equal(browser.getParent(browser.entries[0]), undefined);
     browser.dispose();
-    const sheetBrowser = new Browser('feuilles', state);
-    sheetBrowser.entries = [{ bank: previewBank, source: 'feuilles/td.typ', metadata: [sourceMetadata('titre: "Série spéciale"', 'feuilles/td.typ'), entries[0].ex] }];
+    const sheetBrowser = new Browser('documents', state);
+    sheetBrowser.entries = [{ bank: previewBank, source: 'feuilles/td.typ', documentType: 'td', metadata: [sourceMetadata('titre: "Série spéciale"', 'feuilles/td.typ'), entries[0].ex] }];
     sheetBrowser.filters = { concours: 'ENS' };
     assert.equal(sheetBrowser.search('speciale monoides').length, 1, 'Titre de feuille combiné aux métadonnées de ses exercices');
     sheetBrowser.filters = { concours: 'X' }; assert.equal(sheetBrowser.visible.length, 0);
+    sheetBrowser.entries.push(
+      { bank: previewBank, source: 'devoirs/2026-2027/ds.typ', documentType: 'devoir', metadata: [sourceMetadata('titre: "Devoir test"', 'devoirs/2026-2027/ds.typ')] },
+      { bank: previewBank, source: 'concours/24/sujet.typ', documentType: 'concours', metadata: [sourceMetadata('titre: "Concours test"', 'concours/24/sujet.typ')] });
+    sheetBrowser.filters = {};
+    const roots = sheetBrowser.getChildren();
+    assert.deepEqual(roots.map(root => isFolder(root) && root.title), ['concours', 'devoirs', 'feuilles']);
+    const devoirParent = sheetBrowser.getParent(sheetBrowser.entries[1]);
+    assert.ok(devoirParent && isFolder(devoirParent) && devoirParent.title === '2026-2027');
+    const devoirRoot = sheetBrowser.getParent(devoirParent);
+    assert.ok(devoirRoot && isFolder(devoirRoot) && devoirRoot.title === 'devoirs');
+    sheetBrowser.filters = { type: 'concours' };
+    assert.equal(sheetBrowser.visible.length, 1);
+    assert.equal(sheetBrowser.search('Concours').length, 1);
+    assert.equal(sheetBrowser.getChildren().length, 1);
+    sheetBrowser.filters = {};
+    sheetBrowser.toggle(); assert.equal(sheetBrowser.getChildren().length, 3);
+    assert.ok(sheetBrowser.getChildren().every(node => !isFolder(node)));
+    assert.ok(searchItem(sheetBrowser.entries[1]).detail?.includes('Devoir'));
     sheetBrowser.dispose();
     const sheet = sheetFromTemplate(await readFile(path.join(bank, 'templates/feuille.typ'), 'utf8'), 'Feuille de test', [relative]);
     await writeFile(path.join(temporary, 'feuilles/test-creation.typ'), sheet);
@@ -212,14 +237,47 @@ export async function run(): Promise<void> {
     sheetEditor.current = { bank: previewBank, source: 'feuilles/autre.typ' };
     assert.equal(sheetEditor.target?.source, 'feuilles/selection.typ');
     const moved: string[] = [];
-    const drag = new Drag<any>('exercices', () => sheetEditor, async (_from, to) => { moved.push(to); }, error => { throw error; });
+    const drag = new Drag<any>(() => sheetEditor, async (_from, to) => { moved.push(to); }, error => { throw error; });
     const transfer = new vscode.DataTransfer();
     drag.handleDrag([{ bank: previewBank, source: relative }], transfer);
     await drag.handleDrop({ bank: previewBank, source: 'exercices', folder: 'exercices' }, transfer);
     assert.deepEqual(moved, ['exercices/test-creation.typ']);
+    const devoirPath = 'devoirs/2026-2027/ds-test.typ';
+    const devoir = sheetFromTemplate(await readFile(path.join(bank, 'templates/devoir.typ'), 'utf8'), 'Devoir de test', []);
+    await writeFile(path.join(temporary, devoirPath), devoir);
+    const devoirDocument = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(temporary, devoirPath)));
+    assert.equal(sheetEditor.locate(devoirDocument.uri)?.source, devoirPath);
+    await sheetEditor.add(previewBank, relative, devoirPath);
+    const devoirMembers = await sheetEditor.members(previewBank, devoirPath);
+    assert.equal(devoirMembers[0].title, 'Test création');
+    assert.ok(!devoirDocument.isDirty);
+    await sheetEditor.change(devoirMembers[0]);
+    assert.ok(!devoirDocument.getText().includes('/' + relative));
+    // Exercise-to-devoir drops compose; blank unified-view drops keep the physical type.
+    const sheetDrag = new Drag<any>(() => sheetEditor, async (_from, to) => { moved.push(to); }, error => { throw error; });
+    await sheetDrag.handleDrop({ bank: previewBank, source: devoirPath }, transfer);
+    assert.equal((await sheetEditor.members(previewBank, devoirPath)).length, 1);
+    const devoirTransfer = new vscode.DataTransfer();
+    sheetDrag.handleDrag([{ bank: previewBank, source: devoirPath }], devoirTransfer);
+    await sheetDrag.handleDrop(undefined, devoirTransfer);
+    assert.equal(moved.at(-1), 'ds-test.typ');
+    await assert.rejects(sheetEditor.add(previewBank, relative, relative), /Choisissez un document/);
     await sheetDocument.save(); sheetEditor.dispose();
     await runner.run(previewBank, ['c', 'feuilles/test-creation.typ']);
-    const contestPath = creationPath('concours', 'concours/24', 'sujet-test');
+    await runner.run(previewBank, ['c', devoirPath]);
+    for (const variant of ['enonce', 'corrige']) assert.ok((await stat(path.join(temporary, `build/devoirs/2026-2027/ds-test/${variant}.pdf`))).size > 1000);
+    const devoirPreview = await previews.open(previewBank, devoirPath, 'enonce');
+    assert.equal(devoirPreview.panel.title, 'ds-test.pdf');
+    assert.ok(devoirPreview.native);
+    await devoirPreview.select('corrige');
+    assert.equal(devoirPreview.panel.title, 'ds-test-cor.pdf');
+    // No category prefix, no mandatory year folder, and a new type without code changes.
+    const customSource = sheetFromTemplate(customTemplate, 'Colle à la racine', [relative]);
+    await writeFile(path.join(temporary, 'colle-test.typ'), customSource);
+    assert.equal(identify(customSource, 'colle-test.typ')?.type, 'colle');
+    await runner.run(previewBank, ['c', 'colle-test.typ']);
+    assert.ok((await stat(path.join(temporary, 'build/colle-test/corrige.pdf'))).size > 1000);
+    const contestPath = creationPath('concours/24', 'sujet-test');
     await mkdir(path.join(temporary, 'concours/24'), { recursive: true });
     await writeFile(path.join(temporary, contestPath), contestFromTemplate(await readFile(path.join(temporary, 'templates/sujet-concours.typ'), 'utf8'), 'Sujet de test'));
     await runner.run(previewBank, ['c', contestPath]);
@@ -251,13 +309,14 @@ export async function run(): Promise<void> {
     themedSocket.addEventListener('message', event => themedMessages.push(typeof event.data === 'string' ? event.data : Buffer.from(event.data as ArrayBuffer).toString()));
     await until(() => themedSocket.readyState === WebSocket.OPEN, 'Connexion au rendu avec thème inversé'); themedSocket.send('current');
     await until(() => themedMessages.some(data => data.includes(`"rest":"${dark ? 'never' : 'always'}"`)), 'Le moteur utilise le thème inversé');
-    await moveSource({ bank: previewBank, source: relative }, 'exercices/test-creation.typ');
-    assert.ok(sheetDocument.getText().includes('/exercices/test-creation.typ'), 'Références actualisées après déplacement');
-    assert.ok((await stat(path.join(temporary, 'exercices/test-creation.typ'))).size > 0);
+    await moveSource({ bank: previewBank, source: relative }, 'test-creation.typ');
+    assert.ok(sheetDocument.getText().includes('/test-creation.typ'), 'Références actualisées après déplacement à la racine');
+    assert.ok((await stat(path.join(temporary, 'test-creation.typ'))).size > 0);
     await assert.rejects(stat(file));
     listener.dispose();
     if (process.env.PREVIEW_REVIEW) { console.log('Aperçu temporaire', enonce.url); await new Promise(resolve => setTimeout(resolve, 55_000)); }
     preview.panel.dispose();
+    devoirPreview.panel.dispose();
     assert.equal(previews.entries.size, 0);
   } finally {
     for (const socket of sockets) socket.close();

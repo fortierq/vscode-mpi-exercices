@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { Browser, Source } from './browser';
 import { duration } from './core';
+import { typeLabel } from './documents';
 
 interface Choice extends vscode.QuickPickItem { source: Source }
 export function searchItem(source: Source): Choice {
@@ -13,7 +14,7 @@ export function searchItem(source: Source): Choice {
   return {
     label: ex?.titre ?? path.basename(source.source, '.typ'),
     description: `${source.bank.name} · ${source.source}`,
-    detail: [ex?.concours && Object.values(ex.concours).filter(value => typeof value !== 'boolean').join(' '),
+    detail: [source.documentType && typeLabel(source.documentType), ex?.concours && Object.values(ex.concours).filter(value => typeof value !== 'boolean').join(' '),
       source.members && `${source.members.length} exercices`, source.ex && `${source.ex.difficulte}/5`,
       ex && duration(ex), levels.join(', '), languages.join(', '), chapters.join(', ')].filter(Boolean).join(' · '),
     source,

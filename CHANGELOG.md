@@ -1,5 +1,11 @@
 # Journal des versions
 
+## 0.6.0
+
+- Trois sections : Fichier, Exercices et Documents ; recherche commune et filtre de type pour TD, devoirs, concours et types personnalisés.
+- API commune `fiche.with(type: "…", ...)`, modèles découverts automatiquement, classement libre et compilation indépendante des dossiers.
+- Points attachés aux questions ; compatibilité des anciens appels et protection des anciens barèmes globaux.
+
 ## 0.5.16
 
 - Recherche réservée à la sélection d'un fichier ; suppression du filtre textuel persistant et de l'option d'application à la vue.

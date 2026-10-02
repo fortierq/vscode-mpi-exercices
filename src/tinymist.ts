@@ -8,6 +8,7 @@ import { Variant, previewArguments } from './core';
 import { Bank } from './runner';
 import { bridge } from './preview-bridge';
 import { errorStatus } from './errors';
+import { identify } from './documents';
 
 export interface Session { id: string; url: string; port: number; connection: MessageConnection; dispose(): void }
 
@@ -22,7 +23,8 @@ export async function start(bank: Bank, source: string, variant: Variant, option
   const id = `exercices-typst-${randomUUID()}`;
   const theme = vscode.workspace.getConfiguration('exercicesMpi', bank.scope).get<string>('previewTheme', 'auto');
   const dark = options.dark ?? (theme === 'dark' || (theme === 'auto' && [vscode.ColorThemeKind.Dark, vscode.ColorThemeKind.HighContrast].includes(vscode.window.activeColorTheme.kind)));
-  const args = previewArguments(bank.root, source, variant);
+  const document = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(bank.root, source)));
+  const args = previewArguments(bank.root, source, variant, identify(document.getText(), source)?.direct);
   const settings = { rootPath: bank.root, typstExtraArgs: args.slice(0, -1), exportPdf: 'never',
     preview: { refresh: 'onType', invertColors: JSON.stringify({ rest: dark ? 'always' : 'never', image: 'never' }) }, customizedShowDocument: true };
   const output = vscode.window.createOutputChannel(`Exercices Typst — ${path.basename(source)} (${variant})`);

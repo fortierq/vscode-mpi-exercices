@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { realpath } from 'node:fs/promises';
 import { Bank } from './runner';
 import { Exercise, safeSource } from './core';
+import { identify } from './documents';
 import { editSheet, sheetList, sourceMetadata } from './sheet-model';
 
 export interface SheetMember {
@@ -15,23 +16,25 @@ export class Sheets implements vscode.Disposable {
   selected?: { bank: Bank; source: string };
   get target() { return this.selected ?? this.current; }
   locate(uri: vscode.Uri) {
-    const bank = this.banks().find(bank => uri.fsPath.startsWith(path.join(bank.root, 'feuilles') + path.sep));
-    return bank ? { bank, source: path.relative(bank.root, uri.fsPath).split(path.sep).join('/') } : undefined;
+    const bank = this.banks().find(bank => uri.scheme === 'file' && uri.fsPath.startsWith(bank.root + path.sep));
+    const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === uri.toString());
+    const source = bank && path.relative(bank.root, uri.fsPath).split(path.sep).join('/');
+    return bank && source && document && identify(document.getText(), source)?.kind === 'document' ? { bank, source } : undefined;
   }
   private subscriptions: vscode.Disposable[];
   constructor(private banks: () => Bank[], private exercises: () => { bank: Bank; ex: Exercise }[]) {
     const track = (document?: vscode.TextDocument) => {
       if (!document || document.uri.scheme !== 'file') return;
-      const bank = this.banks().find(bank => document.uri.fsPath.startsWith(path.join(bank.root, 'feuilles') + path.sep));
-      if (bank) this.current = { bank, source: path.relative(bank.root, document.uri.fsPath).split(path.sep).join('/') };
+      const location = this.locate(document.uri);
+      if (location) this.current = location;
     };
     this.subscriptions = [vscode.window.onDidChangeActiveTextEditor(editor => track(editor?.document)),
-      vscode.workspace.onDidChangeTextDocument(event => { if (event.document.uri.path.includes('/feuilles/')) this.changed.fire(); })];
+      vscode.workspace.onDidChangeTextDocument(event => { if (this.locate(event.document.uri)) this.changed.fire(); })];
   }
   remember(): void {
     const uri = vscode.window.activeTextEditor?.document.uri;
-    const bank = uri && this.banks().find(bank => uri.fsPath.startsWith(path.join(bank.root, 'feuilles') + path.sep));
-    if (bank) this.current = { bank, source: path.relative(bank.root, uri!.fsPath).split(path.sep).join('/') };
+    const location = uri && this.locate(uri);
+    if (location) this.current = location;
   }
   async members(bank: Bank, source: string): Promise<SheetMember[]> {
     const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(bank.root, source)));
@@ -48,12 +51,18 @@ export class Sheets implements vscode.Disposable {
   async change(member: SheetMember, direction?: number): Promise<void> {
     await this.modify(member.bank, member.sheet, { index: member.index, direction }, member.snapshot);
   }
-  async add(bank: Bank, source: string, sheet: string): Promise<void> { await this.modify(bank, sheet, { add: source }); }
+  async add(bank: Bank, source: string, sheet: string): Promise<void> {
+    safeSource(source);
+    const document = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(bank.root, source)));
+    if (identify(document.getText(), source)?.kind !== 'exercice') throw new Error('Choisissez un exercice à ajouter.');
+    await this.modify(bank, sheet, { add: source });
+  }
   private async modify(bank: Bank, sheet: string, operation: Parameters<typeof editSheet>[2], snapshot?: string): Promise<void> {
     safeSource(sheet);
     if (!(await realpath(path.join(bank.root, sheet))).startsWith(bank.root + path.sep)) throw new Error('La feuille doit rester dans la banque.');
     const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(bank.root, sheet)));
     const text = doc.getText();
+    if (identify(text, sheet)?.kind !== 'document') throw new Error('Choisissez un document utilisant fiche.with(...).');
     if (snapshot !== undefined && snapshot !== text) throw new Error('La feuille a changé ; recommencez depuis la vue actualisée.');
     const result = editSheet(text, sheet, operation);
     const edit = new vscode.WorkspaceEdit();

@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { identify } from '../src/documents';
 import { Exercise, executionCommand, matches, parseCatalogue, parseDiagnostics, pdfTarget, pdfFilename, previewArguments } from '../src/core';
 import { exerciseFromTemplate, sheetFromTemplate, outline, vocabulary, mask } from '../src/typst';
 import { hierarchy, isFolder } from '../src/tree';
@@ -28,11 +29,12 @@ test('catalogue automatique : inactif sans changements, regroupement, relance et
   } finally { failure.dispose(); }
 });
 
-test('création dans le dossier choisi, sans traversée ni changement de section', () => {
-  assert.equal(creationPath('feuilles', 'feuilles/langages', 'td-test'), 'feuilles/langages/td-test.typ');
-  assert.equal(creationPath('concours', 'concours/24/oraux', 'sujet'), 'concours/24/oraux/sujet.typ');
-  for (const folder of ['exercices', 'feuilles/../concours', '/feuilles']) assert.throws(() => creationPath('feuilles', folder, 'test'));
-  assert.throws(() => creationPath('feuilles', 'feuilles', '../test'));
+test('création dans un dossier libre ou à la racine, sans traversée', () => {
+  assert.equal(creationPath('devoirs/2026-2027', 'ds-1'), 'devoirs/2026-2027/ds-1.typ');
+  assert.equal(creationPath('classe/chapitre', 'td-test'), 'classe/chapitre/td-test.typ');
+  assert.equal(creationPath('', 'sujet'), 'sujet.typ');
+  for (const folder of ['..', 'feuilles/../concours', '/feuilles']) assert.throws(() => creationPath(folder, 'test'));
+  assert.throws(() => creationPath('feuilles', '../test'));
   const template = 'titre: "Modèle",\nconcours: none,\ncontenu: (question([Question]),)';
   assert.equal(contestFromTemplate(template, 'Titre "cité"'), 'titre: "Titre \\"cité\\"",\nconcours: none,\ncontenu: (question([Question]),)'.replaceAll('\\\\', '\\'));
   assert.throws(() => contestFromTemplate('modèle incompatible', 'Titre'));
@@ -115,10 +117,12 @@ test('tous les filtres se cumulent avec la recherche', () => {
   assert.equal(matches({ ...exercise, concours: null }, '', { concours: 'ENS' }), false);
 });
 test('chemins PDF conformes aux règles Make, feuilles imbriquées incluses', () => {
+  assert.equal(pdfTarget('devoirs/2026-2027/ds-1.typ', 'enonce'), 'build/devoirs/2026-2027/ds-1/enonce.pdf');
+  assert.equal(pdfTarget('devoirs/2026-2027/ds-1.typ', 'corrige'), 'build/devoirs/2026-2027/ds-1/corrige.pdf');
   assert.equal(pdfTarget(exercise.fichier, 'enonce'), 'build/exercices/langages/automates-monoides/enonce.pdf');
   assert.equal(pdfTarget('concours/22/oral/test.typ', 'corrige'), 'build/concours/22/oral/test/corrige.pdf');
-  assert.equal(pdfTarget('feuilles/langages/td.typ', 'enonce'), 'build/feuilles/langages/td.pdf');
-  assert.equal(pdfTarget('feuilles/langages/td.typ', 'corrige'), 'build/feuilles/langages/td-corrige.pdf');
+  assert.equal(pdfTarget('feuilles/langages/td.typ', 'enonce'), 'build/feuilles/langages/td/enonce.pdf');
+  assert.equal(pdfTarget('feuilles/langages/td.typ', 'corrige'), 'build/feuilles/langages/td/corrige.pdf');
 });
 test('rejet de chemins sortant de la banque et de la syntaxe Make', () => {
   for (const source of ['../test.typ', 'exercices/../test.typ', '/exercices/test.typ', 'exercices/$(shell x).typ', 'exercices/test;exit.typ', 'exercices/test\n.typ']) assert.throws(() => pdfTarget(source, 'enonce'));
@@ -141,11 +145,15 @@ test('noms PDF : énoncé et corrigé partagent le nom de source', () => {
   assert.equal(pdfFilename(exercise.fichier, 'corrige'), exercise.fichier.split('/').at(-1)!.replace('.typ', '-cor.pdf'));
 });
 test('aperçu : modèles et variantes cohérents avec les cibles make c, sans PDF intermédiaire', () => {
+  const devoirArgs = previewArguments('/bank', 'devoirs/2026-2027/ds-1.typ', 'corrige', true);
+  assert.equal(devoirArgs.at(-1), '/bank/devoirs/2026-2027/ds-1.typ');
+  assert.ok(devoirArgs.includes('corrige=true'));
+  assert.ok(!devoirArgs.some(arg => arg.startsWith('exercice=')));
   const exerciseArgs = previewArguments('/bank', exercise.fichier, 'corrige');
   assert.ok(exerciseArgs.includes('corrige=true'));
   assert.ok(exerciseArgs.includes(`exercice=/${exercise.fichier}`));
   assert.equal(exerciseArgs.at(-1), '/bank/templates/fiche.typ');
-  const sheetArgs = previewArguments('/bank', 'feuilles/langages/td.typ', 'enonce');
+  const sheetArgs = previewArguments('/bank', 'feuilles/langages/td.typ', 'enonce', true);
   assert.equal(sheetArgs.at(-1), '/bank/feuilles/langages/td.typ');
   assert.equal(sheetArgs.includes('templates/fiche.typ'), false);
 });
@@ -193,4 +201,33 @@ test('titre de feuille : feuille.with prime sur les exercices locaux', () => {
   assert.equal(meta.titre, 'TD : Automates');
   assert.deepEqual(meta.niveaux, ['MPI']);
   assert.deepEqual(meta.chapitres, []);
+  assert.equal(sourceMetadata(source, 'devoirs/2026-2027/ds.typ').titre, 'TD : Automates');
+});
+
+test('composition : protéger le barème personnalisé, conserver les barèmes hérités', () => {
+  const source = 'devoirs/2026-2027/ds.typ';
+  for (const bareme of ['(1, 2,)', 'calcul()', 'none + autre']) {
+    const text = editableSheet.replace('titre: "TD",', `titre: "TD", bareme: ${bareme},`);
+    for (const operation of [{ index: 0 }, { index: 1, direction: -1 }, { add: 'exercices/c.typ' }]) {
+      assert.throws(() => editSheet(text, source, operation), /Barème personnalisé/);
+    }
+  }
+  const inherited = editableSheet.replace('titre: "TD",', 'titre: "TD", bareme: none,');
+  assert.equal(sheetList(editSheet(inherited, source, { index: 0 }), source).entries.length, 1);
+  assert.ok(editSheet(editableSheet + '\n// bareme: (1,)', source, { index: 0 }));
+});
+
+test('documents : type déclaré, indépendant du dossier, anciens appels compatibles', () => {
+  assert.equal(outline('question(points: 1.5, [Question notée], solution: [Réponse])')[0].title, '1. Question notée');
+  for (const source of ['ds.typ', 'classe/graphes/ds.typ', 'exercices/test.typ']) {
+    assert.deepEqual(identify('#show: fiche.with(type: "devoir", exercices: ())', source), { kind: 'document', type: 'devoir', direct: true });
+  }
+  assert.equal(identify('#show: fiche.with(type: "colle", exercices: ())')?.type, 'colle');
+  assert.equal(identify('#show: feuille.with(exercices: ())')?.type, 'td');
+  assert.equal(identify('#let ex = exercice()', 'racine.typ')?.kind, 'exercice');
+  assert.equal(identify('#import "/sujet.typ": ex', 'alias.typ')?.kind, 'exercice');
+  assert.equal(identify('#import "/sujet.typ": autre as ex', 'alias.typ')?.kind, 'exercice');
+  for (const source of ['// #show: fiche.with()', '/* #let ex = exercice() */', '`#let ex = exercice()`', '#let texte = "#show: fiche.with()"']) assert.equal(identify(source), undefined);
+  const fiche = editableSheet.replace('feuille.with(', 'fiche.with(type: "devoir",');
+  assert.equal(sheetList(editSheet(fiche, 'libre.typ', { index: 0 }), 'libre.typ').entries.length, 1);
 });
