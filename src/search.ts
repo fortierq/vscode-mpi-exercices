@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { Browser, Source } from './browser';
 import { duration } from './core';
 
-interface Choice extends vscode.QuickPickItem { source?: Source }
+interface Choice extends vscode.QuickPickItem { source: Source }
 export function searchItem(source: Source): Choice {
   const ex = source.ex ?? source.metadata?.[0];
   const metadata = source.ex ? [source.ex] : source.metadata ?? [];
@@ -22,23 +22,21 @@ export function searchItem(source: Source): Choice {
   };
 }
 
-export function searchPicker(browser: Browser): Promise<{ query: string; source?: Source } | undefined> {
+export function searchPicker(browser: Browser): Promise<Source | undefined> {
   const picker = vscode.window.createQuickPick<Choice>();
   picker.title = `Rechercher : ${browser.category}`;
-  picker.placeholder = 'Titre, chemin, concours, chapitre… Entrée : appliquer ; ↓ : choisir un fichier.';
-  picker.value = browser.query;
+  picker.placeholder = 'Titre, chemin, concours, chapitre… Entrée : ouvrir le fichier sélectionné.';
   const refresh = () => {
     const items = browser.search(picker.value).map(searchItem).sort((a, b) => a.label.localeCompare(b.label, 'fr', { numeric: true }));
-    const apply: Choice = { label: '$(filter) Appliquer la recherche à la vue', description: `${items.length} résultat(s)`, alwaysShow: true };
-    picker.items = [apply, ...items];
-    picker.activeItems = [apply];
+    picker.items = items;
+    picker.activeItems = items.slice(0, 1);
   };
   return new Promise(resolve => {
-    let result: { query: string; source?: Source } | undefined;
+    let result: Source | undefined;
     const subscriptions = [picker.onDidChangeValue(refresh), browser.onDidChangeTreeData(refresh),
       picker.onDidAccept(() => {
-        result = { query: picker.value.trim(), source: (picker.selectedItems[0] ?? picker.activeItems[0])?.source };
-        picker.hide();
+        result = (picker.selectedItems[0] ?? picker.activeItems[0])?.source;
+        if (result) picker.hide();
       }),
       picker.onDidHide(() => { for (const subscription of subscriptions) subscription.dispose(); picker.dispose(); resolve(result); })];
     refresh(); picker.show();

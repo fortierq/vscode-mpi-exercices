@@ -1,5 +1,9 @@
 # Journal des versions
 
+## 0.5.16
+
+- Recherche réservée à la sélection d'un fichier ; suppression du filtre textuel persistant et de l'option d'application à la vue.
+
 ## 0.5.15
 
 - Indication watch retirée du lecteur ; erreurs masquées pendant la saisie (pause de 2 s) ; clic sur l'erreur ouvrant uniquement Problems.

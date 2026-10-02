@@ -13,7 +13,6 @@ export class Browser implements vscode.TreeDataProvider<BrowserNode>, vscode.Dis
   readonly onDidChangeTreeData = this.changed.event;
   entries: Source[] = [];
   directories: { bank: Bank; source: string }[] = [];
-  query = '';
   filters: Filters = {};
   flat: boolean;
   private folders = new Map<string, Folder<Leaf>>();
@@ -21,7 +20,7 @@ export class Browser implements vscode.TreeDataProvider<BrowserNode>, vscode.Dis
     this.flat = state.get(`flat.${category}`, false);
   }
   get visible(): Source[] {
-    return this.search(this.query);
+    return this.search('');
   }
   search(query: string): Source[] {
     return this.entries.filter(item => {
@@ -31,7 +30,7 @@ export class Browser implements vscode.TreeDataProvider<BrowserNode>, vscode.Dis
       return metadata.some(ex => matches({ ...ex, titre: `${metadata[0].titre} ${ex.titre}`, fichier: `${item.source} ${ex.fichier}` }, query, this.filters));
     });
   }
-  get searching(): boolean { return !!this.query.trim() || Object.values(this.filters).some(Boolean); }
+  get searching(): boolean { return Object.values(this.filters).some(Boolean); }
   getParent(node: BrowserNode): BrowserNode | undefined {
     const id = this.getTreeItem(node).id;
     const find = (nodes: BrowserNode[], parent?: BrowserNode): BrowserNode | undefined => {
@@ -54,7 +53,7 @@ export class Browser implements vscode.TreeDataProvider<BrowserNode>, vscode.Dis
         const tree = hierarchy<Leaf>(entries.filter(item => item.bank.root === bank.root), item => item.source.replace(/^[^/]+\//, ''));
         const decorate = (nodes: BrowserNode[]) => { for (const node of nodes) if (isFolder(node)) { Object.assign(node, { bank, source: this.category + node.folder }); decorate(node.children); node.folder = bank.root + '/' + this.category + node.folder; } };
         decorate(tree);
-        if (!this.query && !Object.keys(this.filters).length) {
+        if (!Object.keys(this.filters).length) {
           for (const directory of this.directories.filter(item => item.bank.root === bank.root)) {
             let children = tree; let prefix = this.category;
             for (const title of directory.source.split('/').slice(1)) {
@@ -83,7 +82,7 @@ export class Browser implements vscode.TreeDataProvider<BrowserNode>, vscode.Dis
   }
   getTreeItem(node: BrowserNode): vscode.TreeItem {
     if (isFolder(node)) {
-      const item = new vscode.TreeItem(node.title, this.query || Object.keys(this.filters).length ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed);
+      const item = new vscode.TreeItem(node.title, Object.keys(this.filters).length ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed);
       item.id = `${this.category}:${node.folder}`;
       item.resourceUri = vscode.Uri.file(node.folder);
       item.iconPath = new vscode.ThemeIcon('folder');

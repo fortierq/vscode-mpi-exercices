@@ -31,8 +31,8 @@ export async function activate(context: vscode.ExtensionContext) {
   let watchers: vscode.Disposable[] = [];
   let disposed = false;
   let discovery = Promise.resolve();
-  const saved = context.workspaceState.get<{ query: string; filters: Filters }>('search');
-  if (saved) { library.query = saved.query; library.filters = saved.filters; }
+  const saved = context.workspaceState.get<{ filters: Filters }>('search');
+  if (saved) { library.filters = saved.filters; }
   const entries = (): BankEntry[] => library.entries.flatMap(item => item.ex ? [{ bank: item.bank, ex: item.ex }] : []);
   const sheetEditor = new Sheets(() => banks, entries);
   const currentFile = new CurrentFile(context, sheetEditor, drag('feuilles'));
@@ -52,15 +52,15 @@ export async function activate(context: vscode.ExtensionContext) {
     for (const [index, browser] of browsers.entries()) {
       const treeView = [view, sheetView, contestView][index];
       treeView.description = `${browser.visible.length} / ${browser.entries.length}`;
-      treeView.message = [browser.query && `Recherche : ${browser.query}`, ...facets.filter(key => browser.filters[key]).map(key => `${labels[key]} : ${browser.filters[key]}`), browser.filters.difficulteMax && `Difficulté ≤ ${browser.filters.difficulteMax}`].filter(Boolean).join(' · ') || undefined;
+      treeView.message = [...facets.filter(key => browser.filters[key]).map(key => `${labels[key]} : ${browser.filters[key]}`), browser.filters.difficulteMax && `Difficulté ≤ ${browser.filters.difficulteMax}`].filter(Boolean).join(' · ') || undefined;
       browser.changed.fire();
       void vscode.commands.executeCommand('setContext', `exercicesMpi.searchActive.${['library', 'sheets', 'contests'][index]}`, browser.searching);
-      void context.workspaceState.update(browser === library ? 'search' : `search.${browser.category}`, { query: browser.query, filters: browser.filters });
+      void context.workspaceState.update(browser === library ? 'search' : `search.${browser.category}`, { filters: browser.filters });
     }
   };
   for (const browser of [sheets, contests]) {
-    const saved = context.workspaceState.get<{ query: string; filters: Filters }>(`search.${browser.category}`);
-    if (saved) { browser.query = saved.query; browser.filters = saved.filters; }
+    const saved = context.workspaceState.get<{ filters: Filters }>(`search.${browser.category}`);
+    if (saved) { browser.filters = saved.filters; }
   }
   async function scan(bank: Bank, browser: Browser): Promise<void> {
     const files = await vscode.workspace.findFiles(new vscode.RelativePattern(vscode.Uri.file(bank.root), `${browser.category}/**/*.typ`), null);
@@ -197,13 +197,10 @@ export async function activate(context: vscode.ExtensionContext) {
     await discovery;
     const result = await searchPicker(browser);
     if (!result) return;
-    browser.query = result.query; update();
-    if (result.source) {
-      const source = await checkSource(result.source);
-      if (browser === sheets) sheetEditor.selected = source;
-      await [view, sheetView, contestView][index].reveal(source, { select: true });
-      await vscode.window.showTextDocument(vscode.Uri.file(path.join(source.bank.root, source.source)));
-    } else await vscode.commands.executeCommand(`exercicesMpi.${['library', 'sheets', 'contests'][index]}.focus`);
+    const source = await checkSource(result);
+    if (browser === sheets) sheetEditor.selected = source;
+    await [view, sheetView, contestView][index].reveal(source, { select: true });
+    await vscode.window.showTextDocument(vscode.Uri.file(path.join(source.bank.root, source.source)));
   });
   register('filters' + suffix, async () => {
     const options = [...facets.map(key => ({ label: labels[key], description: browser.filters[key] ?? 'Tous', key })), { label: 'Difficulté maximale', description: String(browser.filters.difficulteMax ?? 'Toutes'), key: 'difficulteMax' as const }];
@@ -216,7 +213,7 @@ export async function activate(context: vscode.ExtensionContext) {
     update();
     await vscode.commands.executeCommand(`exercicesMpi.${['library', 'sheets', 'contests'][index]}.focus`);
   });
-  register('reset' + suffix, () => { browser.query = ''; browser.filters = {}; update(); });
+  register('reset' + suffix, () => { browser.filters = {}; update(); });
   }
   register('openPanel', () => vscode.commands.executeCommand('workbench.view.extension.exercicesMpi'));
   for (const section of ['current', 'library', 'sheets', 'contests']) register('collapse' + section, async () => {
@@ -224,7 +221,7 @@ export async function activate(context: vscode.ExtensionContext) {
     await vscode.commands.executeCommand(`workbench.actions.treeView.exercicesMpi.${section}.collapseAll`);
   });
   async function revealSheet(source: Source): Promise<void> {
-    sheets.query = ''; sheets.filters = {}; update();
+    sheets.filters = {}; update();
     sheetEditor.selected = source;
     await sheetView.reveal(source, { select: true, expand: true });
   }

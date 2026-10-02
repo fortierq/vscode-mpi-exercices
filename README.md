@@ -4,7 +4,7 @@ Installer le VSIX de `releases/`, puis ouvrir une banque `exercices-mpi` approuv
 
 - **Fichier actuel** : métadonnées, questions et exercices cliquables ; parties repliées.
 - **Exercices**, **Feuilles**, **Concours** : recherche, filtres, dossiers repliables ou liste.
-- La recherche affiche une liste de fichiers et leurs métadonnées, filtrée à la frappe. Choisir un fichier pour l'ouvrir ; Entrée sur « Appliquer la recherche à la vue » conserve le fonctionnement par filtre. Échap annule. Les filtres déjà actifs restent appliqués.
+- La recherche sert uniquement à choisir et ouvrir un fichier, avec ses métadonnées. La saisie affine la liste mais ne filtre jamais le panneau. Entrée ouvre le fichier sélectionné ; Échap annule. Les filtres de métadonnées déjà actifs restent appliqués.
 - Le catalogue est actualisé automatiquement toutes les 5 secondes si des sources Typst ont changé sur disque (imports compris). Aucune reconstruction sans changement ; les erreurs sont signalées sans remplacer le dernier catalogue valide.
 - **Créer une nouvelle feuille** crée une feuille vide. Sélectionner la feuille dans **Feuilles**, puis utiliser **+** sur les exercices, ou les glisser sur la feuille.
 - Réordonner les exercices par glisser-déposer ou avec les flèches ; **×** retire aussi l'import. Ces modifications sont enregistrées automatiquement et restent annulables. Un import utilisé ailleurs n'est pas supprimé silencieusement.
@@ -28,7 +28,7 @@ Le téléchargement propose un emplacement puis compile et enregistre le PDF, sa
 
 F1 reste inchangé. Ailleurs, les raccourcis habituels de VS Code restent disponibles. Sur Mac, **Fn** peut être nécessaire selon les réglages du clavier.
 
-**Échap** dans la liste ou **×** annule la recherche et les filtres, seulement lorsqu'ils sont actifs. **Tout replier** et **Basculer dossiers / liste** sont dans **…**.
+**Échap** dans le panneau ou **×** efface les filtres de métadonnées, seulement lorsqu'ils sont actifs. **Tout replier** et **Basculer dossiers / liste** sont dans **…**.
 
 ## Aperçu
 
