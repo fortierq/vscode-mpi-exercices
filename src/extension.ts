@@ -13,6 +13,7 @@ import { Sheets, SheetMember } from './sheets';
 import { sourceMetadata } from './sheet-model';
 import { directories, newFolder, moveSource, deleteSource, Location } from './files';
 import { Drag } from './drag';
+import { Refresh } from './refresh';
 
 export async function activate(context: vscode.ExtensionContext) {
   const runner = new Runner();
@@ -108,12 +109,24 @@ export async function activate(context: vscode.ExtensionContext) {
       const reload = () => { clearTimeout(timer); timer = setTimeout(() => { void load(bank).catch(report); }, 200); };
       catalogue.onDidChange(reload); catalogue.onDidCreate(reload);
       watchers.push(catalogue, { dispose: () => clearTimeout(timer) });
+      const refresh = new Refresh(async () => {
+        await runner.run(bank, ['catalogue']);
+        if (disposed || !banks.includes(bank)) return;
+        await load(bank);
+        await scan(bank, sheets);
+        await scan(bank, contests);
+      }, report);
+      // Imports can affect computed metadata: conservatively track all Typst sources.
+      const sources = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(root), '{exercices,concours,lib,templates}/**/*.typ'));
+      sources.onDidChange(() => refresh.mark());
+      sources.onDidCreate(() => refresh.mark());
+      sources.onDidDelete(() => refresh.mark());
+      watchers.push(refresh, sources);
       for (const browser of browsers) {
         const files = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(root), `${browser.category}/**/*.typ`));
         const rescan = () => { void scan(bank, browser).catch(report); };
         files.onDidCreate(rescan); files.onDidDelete(rescan);
-        if (browser === library) files.onDidChange(() => { view.message = 'Métadonnées modifiées : ↻ actualise le catalogue.'; });
-        else files.onDidChange(rescan);
+        if (browser !== library) files.onDidChange(rescan);
         watchers.push(files);
       }
     }

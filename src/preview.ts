@@ -56,6 +56,7 @@ export class Previews implements vscode.Disposable {
     panel.iconPath = vscode.Uri.joinPath(this.context.extensionUri, 'media', 'pdf.svg');
     const sessions = new Map<Variant, tinymist.Session>();
     const pdfs = new Map<Variant, string>();
+    const errors = new Map<Variant, string>();
     const channel = randomBytes(18).toString('hex');
     const post = (message: object) => panel.webview.postMessage({ ...message, channel });
     let disposed = false;
@@ -68,6 +69,7 @@ export class Previews implements vscode.Disposable {
     };
     const describe = async () => {
       panel.title = pdfFilename(source, preview.variant);
+      if (ready && !disposed) await post({ type: 'compileError', message: errors.get(preview.variant) ?? '' });
       if (ready && !disposed) await post({ type: 'show', variant: preview.variant, native: preview.native, jumps: preview.jumps, dark: isDark(), pdf: pdfs.get(preview.variant), sessions: Object.fromEntries([...sessions].map(([v, s]) => [v, s.url])), tokens: Object.fromEntries([...sessions].map(([v, s]) => [v, s.id])) });
     };
     const select = async (value: Variant) => {
@@ -81,7 +83,9 @@ export class Previews implements vscode.Disposable {
       }
       if (preview.native && !sessions.has(value)) {
         await post({ type: 'status', message: 'Démarrage de Tinymist…' });
-        const session = await tinymist.start(bank, source, value, { dark: isDark(), canJump: () => preview.jumps && preview.variant === value && panel.visible });
+        const session = await tinymist.start(bank, source, value, { dark: isDark(), canJump: () => preview.jumps && preview.variant === value && panel.visible,
+          onError: message => { errors.set(value, message); if (ready && !disposed && preview.variant === value) void post({ type: 'compileError', message }); }
+        });
         if (disposed) { await tinymist.stop(session); return; }
         sessions.set(value, session);
       }
@@ -97,6 +101,7 @@ export class Previews implements vscode.Disposable {
         if (disposed) return;
         await post({ type: 'reset' });
         pdfs.clear();
+        errors.clear();
         const previous = [...sessions.values()]; sessions.clear();
         await Promise.all(previous.map(session => tinymist.stop(session).catch(() => undefined)));
         await select(preview.variant);
@@ -132,7 +137,7 @@ export class Previews implements vscode.Disposable {
       <button id="theme" title="Mode sombre" aria-label="Mode sombre" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z"/></svg></button>
       <button id="restart" title="Redémarrer l'aperçu" aria-label="Redémarrer l'aperçu"><svg viewBox="0 0 24 24"><path d="M20 8a9 9 0 1 0 1 8M20 2v6h-6"/></svg></button>
       <button id="save" title="Exporter le PDF…" aria-label="Exporter le PDF"><svg width="16" height="16" viewBox="0 0 21 21" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h12l3 3v12H3zM6 3v6h8V3M6 18v-6h9v6"/></svg></button></nav>
-      <p id="status" role="status">Chargement…</p><main id="viewers"></main>
+      <p id="compile-error" role="alert" hidden></p><p id="status" role="status">Chargement…</p><main id="viewers"></main>
       <script nonce="${nonce}" src="${uri('viewer.mjs')}" type="module"></script></body></html>`;
     try { await preview.select(variant); return preview; }
     catch (error) { panel.dispose(); throw error; }

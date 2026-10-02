@@ -6,6 +6,27 @@ import { hierarchy, isFolder } from '../src/tree';
 import { sheetList, editSheet, sourceMetadata } from '../src/sheet-model';
 import { bridgeHtml } from '../src/preview-bridge';
 import { creationPath, contestFromTemplate } from '../src/typst';
+import { Refresh } from '../src/refresh';
+
+test('catalogue automatique : inactif sans changements, regroupement, relance et erreurs', async () => {
+  let calls = 0; let release!: () => void;
+  const errors: unknown[] = [];
+  const refresh = new Refresh(async () => { calls++; await new Promise<void>(resolve => { release = resolve; }); }, error => errors.push(error), 60000);
+  try {
+    await refresh.flush(); assert.equal(calls, 0);
+    refresh.mark(); refresh.mark(); const first = refresh.flush(); assert.equal(calls, 1);
+    refresh.mark(); await refresh.flush(); assert.equal(calls, 1);
+    release(); await first;
+    const second = refresh.flush(); assert.equal(calls, 2); release(); await second;
+    await refresh.flush(); assert.equal(calls, 2);
+  } finally { refresh.dispose(); }
+  const failure = new Refresh(async () => { throw new Error('Typst invalide'); }, error => errors.push(error), 60000);
+  try {
+    failure.mark(); await failure.flush(); await failure.flush(); assert.equal(errors.length, 1);
+    failure.mark(); await failure.flush(); assert.equal(errors.length, 2);
+    failure.dispose(); failure.mark(); await failure.flush(); assert.equal(errors.length, 2);
+  } finally { failure.dispose(); }
+});
 
 test('création dans le dossier choisi, sans traversée ni changement de section', () => {
   assert.equal(creationPath('feuilles', 'feuilles/langages', 'td-test'), 'feuilles/langages/td-test.typ');

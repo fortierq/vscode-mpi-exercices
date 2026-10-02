@@ -12,7 +12,7 @@ export interface Session { id: string; url: string; port: number; connection: Me
 
 // Tinymist's shared LSP ignores per-preview root/inputs. An isolated LSP
 // context reuses its installed engine without changing the user's settings.
-export async function start(bank: Bank, source: string, variant: Variant, options: { dark?: boolean; canJump?: () => boolean } = {}): Promise<Session> {
+export async function start(bank: Bank, source: string, variant: Variant, options: { dark?: boolean; canJump?: () => boolean; onError?: (message: string) => void } = {}): Promise<Session> {
   if (!vscode.workspace.isTrusted) throw new Error('Autorisez cet espace de travail pour ouvrir un aperçu.');
   const extension = vscode.extensions.getExtension('myriad-dreamin.tinymist');
   if (!extension) throw new Error('Installez Tinymist pour afficher les aperçus.');
@@ -29,6 +29,7 @@ export async function start(bank: Bank, source: string, variant: Variant, option
   const connection = createMessageConnection(new StreamMessageReader(child.stdout), new StreamMessageWriter(child.stdin));
   const subscriptions: vscode.Disposable[] = [];
   const diagnostics = vscode.languages.createDiagnosticCollection(id);
+  const errors = new Map<string, string[]>();
   let stopped = false;
   let page: Awaited<ReturnType<typeof bridge>> | undefined;
   const dispose = () => {
@@ -43,6 +44,8 @@ export async function start(bank: Bank, source: string, variant: Variant, option
   connection.onRequest('client/registerCapability', () => null);
   connection.onRequest('client/unregisterCapability', () => null);
   connection.onNotification('textDocument/publishDiagnostics', (params: { uri: string; diagnostics: { range: { start: { line: number; character: number }; end: { line: number; character: number } }; message: string; severity?: number }[] }) => {
+    errors.set(params.uri, params.diagnostics.filter(d => d.severity === 1).map(d => `${path.relative(bank.root, vscode.Uri.parse(params.uri).fsPath)}:${d.range.start.line + 1} : ${d.message}`));
+    options.onError?.([...errors.values()].flat().join('\n'));
     diagnostics.set(vscode.Uri.parse(params.uri), params.diagnostics.map(d => new vscode.Diagnostic(new vscode.Range(d.range.start.line, d.range.start.character, d.range.end.line, d.range.end.character), d.message, (d.severity ?? 1) - 1)));
   });
   const showSource = async (jump: { filepath: string; start: [number, number] | null; end: [number, number] | null }) => {

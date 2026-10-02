@@ -1,5 +1,10 @@
 # Journal des versions
 
+## 0.5.12
+
+- Catalogue reconstruit toutes les 5 secondes seulement après modification de sources, sans exécutions concurrentes.
+- Erreurs de compilation détaillées et bandeau d'erreurs Tinymist dans l'aperçu, effacé après correction.
+
 ## 0.5.11
 
 - F5 pour l'énoncé, F6 pour le corrigé ; Maj exporte la variante correspondante.

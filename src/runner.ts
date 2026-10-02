@@ -56,7 +56,12 @@ export class Runner implements vscode.Disposable {
           if (this.disposed || token.isCancellationRequested) { reject(new vscode.CancellationError()); return; }
           this.updateDiagnostics(bank, output);
           if (code === 0) resolve();
-          else { this.output.show(true); reject(new Error(`La compilation a échoué (code ${code}). Consultez le journal Exercices Typst et le panneau Problèmes.`)); }
+          else {
+            this.output.show(true);
+            const diagnostic = parseDiagnostics(output).find(item => !item.warning);
+            const detail = diagnostic ? `${diagnostic.file}:${diagnostic.line + 1} : ${diagnostic.message}` : output.trim().split('\n').slice(-8).join('\n');
+            reject(new Error(`La compilation a échoué (code ${code}).\n${detail}`));
+          }
         });
       });
     });

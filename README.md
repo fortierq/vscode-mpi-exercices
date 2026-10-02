@@ -4,6 +4,7 @@ Installer le VSIX de `releases/`, puis ouvrir une banque `exercices-mpi` approuv
 
 - **Fichier actuel** : métadonnées, questions et exercices cliquables ; parties repliées.
 - **Exercices**, **Feuilles**, **Concours** : recherche, filtres, dossiers repliables ou liste.
+- Le catalogue est actualisé automatiquement toutes les 5 secondes si des sources Typst ont changé sur disque (imports compris). Aucune reconstruction sans changement ; les erreurs sont signalées sans remplacer le dernier catalogue valide.
 - **Créer une nouvelle feuille** crée une feuille vide. Sélectionner la feuille dans **Feuilles**, puis utiliser **+** sur les exercices, ou les glisser sur la feuille.
 - Réordonner les exercices par glisser-déposer ou avec les flèches ; **×** retire aussi l'import. Ces modifications sont enregistrées automatiquement et restent annulables. Un import utilisé ailleurs n'est pas supprimé silencieusement.
 - Déplacer les fichiers en les glissant sur un dossier ou dans le fond de leur section. Les références Typst littérales sont actualisées ; vérifier les chemins calculés et les références externes.
@@ -33,6 +34,8 @@ F1 reste inchangé. Ailleurs, les raccourcis habituels de VS Code restent dispon
 Énoncé et Corrigé ont deux boutons distincts. **↔** active les sauts source–aperçu et leur surlignage ; **lune** inverse le thème, qui suit VS Code par défaut.
 
 Avec Tinymist : rendu vectoriel actualisé à la frappe, positions source précises et variantes gardées en mémoire. Sans Tinymist : lecteur PDF actualisé à l'enregistrement, sans sauts ; les outils de compilation de la banque restent nécessaires.
+
+Les erreurs Typst sont affichées dans l'aperçu et le panneau Problèmes ; le bandeau disparaît après correction. Les erreurs d'export ou de catalogue sont signalées avec leur détail et le journal.
 
 La sauvegarde exporte le PDF courant ; **Exporter les PDF énoncé et corrigé** lance `make c`. Enregistrer les sources avant l'export. Réglages : `exercicesMpi.previewTheme`, `bankPath`, `execution`, `nixPath`, `makePath`.
 
