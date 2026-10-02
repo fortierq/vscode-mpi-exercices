@@ -39,7 +39,7 @@ export class Previews implements vscode.Disposable {
   private report = (error: unknown): void => {
     if (!errorStatus.has(error)) {
       this.fallback.output.appendLine(String(error));
-      errorStatus.set('preview', 'Erreur aperçu', error, () => this.fallback.output.show(true));
+      errorStatus.set('preview', 'Erreur aperçu', error);
     }
   };
   private restart(): void { for (const preview of this.entries.values()) if (preview.dark === undefined) void preview.restart().catch(this.report); }
@@ -139,7 +139,7 @@ export class Previews implements vscode.Disposable {
       <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}' ${webview.cspSource} 'wasm-unsafe-eval'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource} data: blob:; worker-src ${webview.cspSource} blob:; connect-src ${webview.cspSource}; img-src data: blob: ${webview.cspSource}; frame-src http://127.0.0.1:* https:;">
       <link rel="stylesheet" href="${uri('viewer.css')}"></head><body data-channel="${channel}" data-pdfjs="${escape(webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'pdfjs')).toString())}/">
       <nav aria-label="Outils de l'aperçu"><button id="enonce" aria-pressed="true">Énoncé</button><button id="corrige" aria-pressed="false">Corrigé</button>
-      <span class="watch" title="Mise à jour à la frappe par Tinymist">● watch</span>
+      <span class="spacer" aria-hidden="true"></span>
       <button id="jumps" title="Sauts source ↔ aperçu" aria-label="Sauts source ↔ aperçu" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4 8h16m-4-4 4 4-4 4M20 16H4m4-4-4 4 4 4"/></svg></button>
       <button id="theme" title="Mode sombre" aria-label="Mode sombre" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z"/></svg></button>
       <button id="restart" title="Redémarrer l'aperçu" aria-label="Redémarrer l'aperçu"><svg viewBox="0 0 24 24"><path d="M20 8a9 9 0 1 0 1 8M20 2v6h-6"/></svg></button>

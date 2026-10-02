@@ -31,25 +31,34 @@ export async function start(bank: Bank, source: string, variant: Variant, option
   const subscriptions: vscode.Disposable[] = [];
   const diagnostics = vscode.languages.createDiagnosticCollection(id);
   const errors = new Map<string, string[]>();
+  let quietUntil = 0;
+  let errorTimer: ReturnType<typeof setTimeout> | undefined;
+  const publishErrors = () => {
+    clearTimeout(errorTimer);
+    if (stopped) return;
+    if (Date.now() < quietUntil) { errorTimer = setTimeout(publishErrors, quietUntil - Date.now()); return; }
+    const message = [...errors.values()].flat().join('\n');
+    if (message) errorStatus.set(id, 'Erreur Typst', message);
+    else errorStatus.clear(id);
+    options.onError?.(message);
+  };
   let stopped = false;
   let page: Awaited<ReturnType<typeof bridge>> | undefined;
   const dispose = () => {
     if (stopped) return; stopped = true;
+    clearTimeout(errorTimer);
     for (const sub of subscriptions) sub.dispose();
     errorStatus.clear(id); page?.dispose(); connection.dispose(); child.kill(); diagnostics.dispose(); output.dispose();
   };
   child.stderr.on('data', data => output.append(data.toString()));
   child.on('error', error => { output.appendLine(error.message); connection.dispose(); });
-  child.once('exit', () => { if (!stopped) { connection.dispose(); errorStatus.set(id, 'Erreur aperçu Typst', 'Le moteur d’aperçu s’est arrêté. Utilisez ↻ pour le redémarrer.', () => output.show(true)); } });
+  child.once('exit', () => { if (!stopped) { connection.dispose(); errorStatus.set(id, 'Erreur aperçu Typst', 'Le moteur d’aperçu s’est arrêté. Utilisez ↻ pour le redémarrer.'); } });
   connection.onRequest('workspace/configuration', (request: { items: unknown[] }) => request.items.map(() => settings));
   connection.onRequest('client/registerCapability', () => null);
   connection.onRequest('client/unregisterCapability', () => null);
   connection.onNotification('textDocument/publishDiagnostics', (params: { uri: string; diagnostics: { range: { start: { line: number; character: number }; end: { line: number; character: number } }; message: string; severity?: number }[] }) => {
     errors.set(params.uri, params.diagnostics.filter(d => (d.severity ?? 1) === 1).map(d => `${path.relative(bank.root, vscode.Uri.parse(params.uri).fsPath)}:${d.range.start.line + 1} : ${d.message}`));
-    const message = [...errors.values()].flat().join('\n');
-    if (message) errorStatus.set(id, 'Erreur Typst', message, () => vscode.commands.executeCommand('workbench.actions.view.problems'));
-    else errorStatus.clear(id);
-    options.onError?.(message);
+    publishErrors();
     diagnostics.set(vscode.Uri.parse(params.uri), params.diagnostics.map(d => new vscode.Diagnostic(new vscode.Range(d.range.start.line, d.range.start.character, d.range.end.line, d.range.end.character), d.message, (d.severity ?? 1) - 1)));
   });
   const showSource = async (jump: { filepath: string; start: [number, number] | null; end: [number, number] | null }) => {
@@ -85,7 +94,12 @@ export async function start(bank: Bank, source: string, variant: Variant, option
     };
     for (const document of vscode.workspace.textDocuments) open(document);
     subscriptions.push(vscode.workspace.onDidOpenTextDocument(open),
-      vscode.workspace.onDidChangeTextDocument(event => { if (belongs(event.document)) { open(event.document); notify('textDocument/didChange', { textDocument: { uri: event.document.uri.toString(), version: event.document.version }, contentChanges: [{ text: event.document.getText() }] }); } }),
+      vscode.workspace.onDidChangeTextDocument(event => { if (belongs(event.document) && event.contentChanges.length) {
+        quietUntil = Date.now() + 2000;
+        errorStatus.clear(id); options.onError?.('');
+        publishErrors();
+        open(event.document); notify('textDocument/didChange', { textDocument: { uri: event.document.uri.toString(), version: event.document.version }, contentChanges: [{ text: event.document.getText() }] });
+      } }),
       vscode.workspace.onDidCloseTextDocument(doc => { if (opened.delete(doc.uri.toString())) notify('textDocument/didClose', { textDocument: { uri: doc.uri.toString() } }); }));
     const result = await connection.sendRequest<{ staticServerPort: number }>('workspace/executeCommand', {
       command: 'tinymist.doStartPreview', arguments: [['--task-id', id, '--data-plane-host', '127.0.0.1:0', '--invert-colors', settings.preview.invertColors, args.at(-1)!]]

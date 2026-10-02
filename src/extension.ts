@@ -46,7 +46,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const report = (error: unknown) => {
     if (disposed || error instanceof vscode.CancellationError) return;
     runner.output.appendLine(String(error));
-    if (!errorStatus.has(error)) errorStatus.set('extension', 'Erreur Exercices Typst', error, () => runner.output.show(true));
+    if (!errorStatus.has(error)) errorStatus.set('extension', 'Erreur Exercices Typst', error);
   };
   const update = () => {
     for (const [index, browser] of browsers.entries()) {

@@ -36,7 +36,7 @@ F1 reste inchangé. Ailleurs, les raccourcis habituels de VS Code restent dispon
 
 Avec Tinymist : rendu vectoriel actualisé à la frappe, positions source précises et variantes gardées en mémoire. Sans Tinymist : lecteur PDF actualisé à l'enregistrement, sans sauts ; les outils de compilation de la banque restent nécessaires.
 
-Les erreurs sont signalées dans la barre d'état : survol pour le détail, clic pour ouvrir le journal ou les Problèmes, sans ouverture automatique. L'indicateur disparaît après une nouvelle exécution réussie de la tâche concernée. Les erreurs Typst restent aussi affichées dans l'aperçu jusqu'à correction.
+Les erreurs sont signalées dans la barre d'état : survol pour le détail, clic pour ouvrir uniquement Problems. L'indicateur disparaît après une nouvelle exécution réussie de la tâche concernée. L'indicateur et le bandeau Typst sont masqués pendant la saisie puis réaffichés après 2 secondes sans frappe si l'erreur persiste ; les diagnostics restent consultables dans Problems.
 
 La sauvegarde exporte le PDF courant ; **Exporter les PDF énoncé et corrigé** lance `make c`. Enregistrer les sources avant l'export. Réglages : `exercicesMpi.previewTheme`, `bankPath`, `execution`, `nixPath`, `makePath`.
 

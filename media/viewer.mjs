@@ -48,8 +48,6 @@ window.addEventListener('message', ({ data }) => {
   state = data;
   document.body.classList.toggle('pdf-dark', !data.native && data.dark);
   document.getElementById('jumps').disabled = !data.native;
-  document.querySelector('.watch').textContent = data.native ? '● watch' : '● à l’enregistrement';
-  document.querySelector('.watch').title = data.native ? 'Mise à jour à la frappe' : 'Tinymist absent : PDF actualisé à l’enregistrement';
   if (data.pdf) { status.hidden = true; void pdf(data.pdf).catch(error => { rendered = undefined; status.textContent = String(error); status.hidden = false; vscode.postMessage({ type: 'pdfError', error: String(error) }); }); }
   for (const [variant, url] of Object.entries(data.sessions)) {
     if (!frames.has(variant)) {

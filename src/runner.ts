@@ -21,7 +21,7 @@ export class Runner implements vscode.Disposable {
     const key = `build:${bank.root}:${targets.join('|')}`;
     this.errorKeys.add(key);
     const job = previous.catch(() => undefined).then(() => this.execute(bank, targets)).then(() => { errorStatus.clear(key); }, error => {
-      if (!this.disposed) errorStatus.set(key, targets[0] === 'catalogue' ? 'Erreur catalogue' : 'Erreur compilation', error, () => this.output.show(true));
+      if (!this.disposed) errorStatus.set(key, targets[0] === 'catalogue' ? 'Erreur catalogue' : 'Erreur compilation', error);
       throw error;
     });
     this.queues.set(bank.root, job);

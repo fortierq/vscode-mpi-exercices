@@ -136,6 +136,8 @@ export async function run(): Promise<void> {
     const invalid = new vscode.WorkspaceEdit();
     invalid.insert(editor.document.uri, editor.document.positionAt(validText.length), '\n#let broken = (');
     await vscode.workspace.applyEdit(invalid);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    assert.ok(!compilationMessages.some(Boolean), 'Pas de bandeau pendant la saisie');
     await until(() => compilationMessages.some(Boolean), 'Erreur de compilation transmise au bandeau PDF');
     const repair = new vscode.WorkspaceEdit();
     repair.delete(editor.document.uri, new vscode.Range(editor.document.positionAt(validText.length), editor.document.positionAt(editor.document.getText().length)));
@@ -151,7 +153,7 @@ export async function run(): Promise<void> {
     await assert.rejects(runner.run(previewBank, ['missing-test-target']), /compilation a échoué/);
     assert.equal(journalOpened, 0, "L'erreur n'ouvre pas le journal automatiquement");
     await vscode.commands.executeCommand('exercicesMpi.showErrorDetails');
-    assert.equal(journalOpened, 1, "Le clic sur la barre d'état ouvre les détails");
+    assert.equal(journalOpened, 0, "Le clic ouvre Problems, jamais le journal");
     errorStatus.clear(`build:${previewBank.root}:missing-test-target`);
     runner.output.show = originalShow;
     for (const variant of ['enonce', 'corrige']) assert.ok((await stat(path.join(temporary, 'build/exercices/graphes/test-creation', `${variant}.pdf`))).size > 1000);

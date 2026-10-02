@@ -1,5 +1,9 @@
 # Journal des versions
 
+## 0.5.15
+
+- Indication watch retirée du lecteur ; erreurs masquées pendant la saisie (pause de 2 s) ; clic sur l'erreur ouvrant uniquement Problems.
+
 ## 0.5.14
 
 - Erreurs de catalogue, compilation et aperçu dans la barre d'état cliquable, sans ouverture automatique du journal ni notification intrusive.
