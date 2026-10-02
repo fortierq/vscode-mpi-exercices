@@ -186,3 +186,11 @@ test('arborescence : dossiers imbriqués et fichiers de même nom dans des dossi
   assert.equal(tree[0].children.length, 2);
   assert.equal(tree[2], 'root.typ');
 });
+
+test('titre de feuille : feuille.with prime sur les exercices locaux', () => {
+  const source = '#let local = exercice(meta: (titre: "Algorithme de déterminisation", niveaux: ("MP",)))\n#show: feuille.with(titre: "TD : Automates", niveau: "MPI", exercices: (local,))';
+  const meta = sourceMetadata(source, 'feuilles/langages/td-automate.typ');
+  assert.equal(meta.titre, 'TD : Automates');
+  assert.deepEqual(meta.niveaux, ['MPI']);
+  assert.deepEqual(meta.chapitres, []);
+});

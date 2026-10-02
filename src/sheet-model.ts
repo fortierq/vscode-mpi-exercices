@@ -81,7 +81,21 @@ export function editSheet(text: string, source: string, operation: { index: numb
 
 // Search indexes literal metadata only; compilation remains the catalogue's job.
 export function sourceMetadata(text: string, source: string): Exercise {
-  const clean = mask(text, false);
+  let clean = mask(text, false);
+  if (source.startsWith('feuilles/')) {
+    const code = mask(text);
+    const show = /#show\s*:\s*feuille\.with\s*\(/.exec(code);
+    if (show) {
+      const start = show.index + show[0].length;
+      let end = start; let depth = 1;
+      while (end < code.length && depth) {
+        if (code[end] === '(') depth++;
+        if (code[end] === ')') depth--;
+        end++;
+      }
+      clean = depth ? '' : clean.slice(start, end - 1);
+    }
+  }
   const string = (key: string) => new RegExp(`\\b${key}\\s*:\\s*"([^"\\n]*)"`).exec(clean)?.[1];
   const values = (key: string) => [...(new RegExp(`\\b${key}\\s*:\\s*\\(([^)]*)\\)`).exec(clean)?.[1] ?? '').matchAll(/"([^"\n]*)"/g)].map(match => match[1]);
   const contest = /\bconcours\s*:\s*\(([^)]*)\)/.exec(clean)?.[1];
