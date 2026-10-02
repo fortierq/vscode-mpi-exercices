@@ -15,6 +15,7 @@ import { directories, newFolder, moveSource, deleteSource, Location } from './fi
 import { Drag } from './drag';
 import { Refresh } from './refresh';
 import { searchPicker } from './search';
+import { errorStatus } from './errors';
 
 export async function activate(context: vscode.ExtensionContext) {
   const runner = new Runner();
@@ -45,7 +46,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const report = (error: unknown) => {
     if (disposed || error instanceof vscode.CancellationError) return;
     runner.output.appendLine(String(error));
-    void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error), 'Voir le journal').then(choice => { if (choice) runner.output.show(true); });
+    if (!errorStatus.has(error)) errorStatus.set('extension', 'Erreur Exercices Typst', error, () => runner.output.show(true));
   };
   const update = () => {
     for (const [index, browser] of browsers.entries()) {
@@ -180,7 +181,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const previews = new Previews(context, exportPdf);
   const register = (name: string, action: (...args: any[]) => unknown) => {
     context.subscriptions.push(vscode.commands.registerCommand(`exercicesMpi.${name}`, async (...args: unknown[]) => {
-      try { return await action(...args); } catch (error) { if (error instanceof vscode.CancellationError) return; report(error); throw error; }
+      try { const result = await action(...args); errorStatus.clear('extension'); return result; } catch (error) { if (error instanceof vscode.CancellationError) return; report(error); }
     }));
   };
   async function relocate(source: Location, destination: string): Promise<void> {
@@ -268,7 +269,7 @@ export async function activate(context: vscode.ExtensionContext) {
   });
   let sheetTimer: NodeJS.Timeout | undefined;
   context.subscriptions.push(sheetEditor.changed.event(() => { clearTimeout(sheetTimer); sheetTimer = setTimeout(() => { for (const bank of banks) void scan(bank, sheets).catch(report); }, 120); }), { dispose: () => clearTimeout(sheetTimer) });
-  context.subscriptions.push(runner, ...browsers, view, sheetView, contestView, previews, currentFile, sheetEditor,
+  context.subscriptions.push(runner, ...browsers, view, sheetView, contestView, previews, currentFile, sheetEditor, errorStatus,
     vscode.workspace.onDidChangeWorkspaceFolders(() => { void discoverQueued().catch(report); }),
     vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('exercicesMpi.bankPath')) void discoverQueued().catch(report); }),
     { dispose: () => { disposed = true; for (const watcher of watchers) watcher.dispose(); } });

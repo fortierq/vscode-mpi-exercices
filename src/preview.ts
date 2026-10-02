@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { Variant, pdfTarget, pdfFilename } from './core';
 import { Bank, Runner } from './runner';
 import * as tinymist from './tinymist';
+import { errorStatus } from './errors';
 
 export interface Preview {
   bank: Bank; source: string; variant: Variant; panel: vscode.WebviewPanel;
@@ -35,7 +36,12 @@ export class Previews implements vscode.Disposable {
     vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('exercicesMpi.previewTheme')) this.restart(); }),
     vscode.workspace.onDidSaveTextDocument(doc => { for (const preview of this.entries.values()) if (!preview.native && doc.uri.fsPath.startsWith(preview.bank.root + path.sep)) void preview.restart().catch(this.report); }));
   }
-  private report(error: unknown): void { void vscode.window.showErrorMessage(`Aperçu : ${String(error)}`); }
+  private report = (error: unknown): void => {
+    if (!errorStatus.has(error)) {
+      this.fallback.output.appendLine(String(error));
+      errorStatus.set('preview', 'Erreur aperçu', error, () => this.fallback.output.show(true));
+    }
+  };
   private restart(): void { for (const preview of this.entries.values()) if (preview.dark === undefined) void preview.restart().catch(this.report); }
 
   async sync(editor = this.editor): Promise<void> {
@@ -90,6 +96,7 @@ export class Previews implements vscode.Disposable {
         sessions.set(value, session);
       }
       preview.variant = value;
+      errorStatus.clear('preview');
       await describe();
     };
     const preview: Preview = {
@@ -117,7 +124,7 @@ export class Previews implements vscode.Disposable {
         else if (message?.type === 'restart') await preview.restart();
         else if (message?.type === 'sync') await this.sync();
         else if (message?.type === 'save') await this.exportPdf(preview, preview.variant);
-      } catch (error) { if (!disposed) await post({ type: 'status', message: String(error) }); }
+      } catch (error) { if (!disposed) { this.report(error); await post({ type: 'status', message: String(error) }); } }
     });
     panel.onDidDispose(() => {
       disposed = true; listener.dispose(); this.entries.delete(key);
@@ -143,5 +150,5 @@ export class Previews implements vscode.Disposable {
     catch (error) { panel.dispose(); throw error; }
   }
 
-  dispose(): void { this.fallback.dispose(); clearTimeout(this.timer); for (const sub of this.subscriptions) sub.dispose(); for (const preview of [...this.entries.values()]) preview.panel.dispose(); }
+  dispose(): void { errorStatus.clear('preview'); this.fallback.dispose(); clearTimeout(this.timer); for (const sub of this.subscriptions) sub.dispose(); for (const preview of [...this.entries.values()]) preview.panel.dispose(); }
 }

@@ -7,6 +7,7 @@ import { createMessageConnection, StreamMessageReader, StreamMessageWriter, Mess
 import { Variant, previewArguments } from './core';
 import { Bank } from './runner';
 import { bridge } from './preview-bridge';
+import { errorStatus } from './errors';
 
 export interface Session { id: string; url: string; port: number; connection: MessageConnection; dispose(): void }
 
@@ -35,17 +36,20 @@ export async function start(bank: Bank, source: string, variant: Variant, option
   const dispose = () => {
     if (stopped) return; stopped = true;
     for (const sub of subscriptions) sub.dispose();
-    page?.dispose(); connection.dispose(); child.kill(); diagnostics.dispose(); output.dispose();
+    errorStatus.clear(id); page?.dispose(); connection.dispose(); child.kill(); diagnostics.dispose(); output.dispose();
   };
   child.stderr.on('data', data => output.append(data.toString()));
   child.on('error', error => { output.appendLine(error.message); connection.dispose(); });
-  child.once('exit', () => { if (!stopped) { connection.dispose(); void vscode.window.showErrorMessage('Le moteur d’aperçu s’est arrêté. Utilisez ↻ pour le redémarrer.'); } });
+  child.once('exit', () => { if (!stopped) { connection.dispose(); errorStatus.set(id, 'Erreur aperçu Typst', 'Le moteur d’aperçu s’est arrêté. Utilisez ↻ pour le redémarrer.', () => output.show(true)); } });
   connection.onRequest('workspace/configuration', (request: { items: unknown[] }) => request.items.map(() => settings));
   connection.onRequest('client/registerCapability', () => null);
   connection.onRequest('client/unregisterCapability', () => null);
   connection.onNotification('textDocument/publishDiagnostics', (params: { uri: string; diagnostics: { range: { start: { line: number; character: number }; end: { line: number; character: number } }; message: string; severity?: number }[] }) => {
-    errors.set(params.uri, params.diagnostics.filter(d => d.severity === 1).map(d => `${path.relative(bank.root, vscode.Uri.parse(params.uri).fsPath)}:${d.range.start.line + 1} : ${d.message}`));
-    options.onError?.([...errors.values()].flat().join('\n'));
+    errors.set(params.uri, params.diagnostics.filter(d => (d.severity ?? 1) === 1).map(d => `${path.relative(bank.root, vscode.Uri.parse(params.uri).fsPath)}:${d.range.start.line + 1} : ${d.message}`));
+    const message = [...errors.values()].flat().join('\n');
+    if (message) errorStatus.set(id, 'Erreur Typst', message, () => vscode.commands.executeCommand('workbench.actions.view.problems'));
+    else errorStatus.clear(id);
+    options.onError?.(message);
     diagnostics.set(vscode.Uri.parse(params.uri), params.diagnostics.map(d => new vscode.Diagnostic(new vscode.Range(d.range.start.line, d.range.start.character, d.range.end.line, d.range.end.character), d.message, (d.severity ?? 1) - 1)));
   });
   const showSource = async (jump: { filepath: string; start: [number, number] | null; end: [number, number] | null }) => {

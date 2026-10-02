@@ -1,5 +1,9 @@
 # Journal des versions
 
+## 0.5.14
+
+- Erreurs de catalogue, compilation et aperçu dans la barre d'état cliquable, sans ouverture automatique du journal ni notification intrusive.
+
 ## 0.5.13
 
 - Recherche rapide d'exercices, feuilles et concours : résultats avec métadonnées, ouverture d'un fichier ou application du filtre à la vue.
