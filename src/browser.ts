@@ -13,7 +13,6 @@ export class Browser implements vscode.TreeDataProvider<BrowserNode>, vscode.Dis
   readonly changed = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.changed.event;
   entries: Source[] = [];
-  directories: { bank: Bank; source: string }[] = [];
   filters: Filters = {};
   flat: boolean;
   private folders = new Map<string, Folder<Leaf>>();
@@ -44,8 +43,9 @@ export class Browser implements vscode.TreeDataProvider<BrowserNode>, vscode.Dis
   }
   getChildren(node?: BrowserNode): BrowserNode[] {
     if (node) return isFolder(node) ? node.children : 'members' in node ? node.members ?? [] : [];
-    const banks = new Map([...this.entries, ...this.directories].map(item => [item.bank.root, item.bank]));
     const entries = [...this.visible].sort((a, b) => (a.ex?.titre ?? a.source).localeCompare(b.ex?.titre ?? b.source, 'fr', { numeric: true }));
+    // Derive every folder (and bank root) from files visible in this view.
+    const banks = new Map(entries.map(item => [item.bank.root, item.bank]));
     const files: BrowserNode[] = this.flat ? entries : [];
     if (!this.flat) for (const bank of banks.values()) {
       const tree = hierarchy<Leaf>(entries.filter(item => item.bank.root === bank.root), item => item.source);
@@ -54,15 +54,6 @@ export class Browser implements vscode.TreeDataProvider<BrowserNode>, vscode.Dis
         decorate(node.children); node.folder = bank.root + node.folder;
       } };
       decorate(tree);
-      if (!this.searching) for (const directory of this.directories.filter(item => item.bank.root === bank.root)) {
-        let children = tree; let prefix = '';
-        for (const title of directory.source.split('/').filter(Boolean)) {
-          prefix += (prefix ? '/' : '') + title;
-          let folder = children.find(item => isFolder(item) && item.folder === bank.root + '/' + prefix) as Folder<Leaf> | undefined;
-          if (!folder) { folder = Object.assign({ folder: bank.root + '/' + prefix, title, children: [] }, { bank, source: prefix }); children.push(folder); }
-          children = folder.children;
-        }
-      }
       const sort = (nodes: BrowserNode[]) => {
         nodes.sort((a, b) => Number(isFolder(b)) - Number(isFolder(a)) || (isFolder(a) ? a.title : a.source).localeCompare(isFolder(b) ? b.title : b.source, 'fr', { numeric: true }));
         for (const node of nodes) if (isFolder(node)) sort(node.children);

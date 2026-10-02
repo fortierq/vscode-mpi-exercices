@@ -95,11 +95,11 @@ export async function documentTemplates(bank: Bank): Promise<{ label: string; de
 
 export async function newSheet(bank: Bank, directory?: string): Promise<vscode.Uri> {
   const templates = await documentTemplates(bank);
-  if (!templates.length) throw new Error('Ajoutez un modèle utilisant fiche.with(type: "…", ...) dans templates/.');
-  const template = await vscode.window.showQuickPick(templates, { title: 'Type de document / modèle' }) ?? canceled();
-  const title = await input('Titre du document', template.type === 'td' ? 'Travaux dirigés' : template.label);
+  if (!templates.length) throw new Error('Ajoutez un modèle utilisant feuille.with(type: "…", ...) dans templates/.');
+  const template = await vscode.window.showQuickPick(templates, { title: 'Type de feuille / modèle' }) ?? canceled();
+  const title = await input('Titre de la feuille', template.type === 'td' ? 'Travaux dirigés' : template.label);
   directory ??= await chooseDirectory();
-  const identifier = await input('Nom du fichier du document', slug(title), value => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? undefined : 'Utilisez des lettres minuscules, chiffres et tirets.');
+  const identifier = await input('Nom du fichier de la feuille', slug(title), value => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? undefined : 'Utilisez des lettres minuscules, chiffres et tirets.');
   const composition = /^#import\s+"\/templates\/exercice.typ"/m.test(template.text);
   const content = composition ? sheetFromTemplate(template.text, title, []) : contestFromTemplate(template.text, title);
   return create(bank, creationPath(directory, identifier), content);

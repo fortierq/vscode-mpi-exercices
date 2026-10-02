@@ -3,7 +3,7 @@
   "displayName": "Exercices Typst",
   "icon": "media/icon-sidebar.png",
   "description": "Parcourir une banque d'exercices Typst, composer des feuilles et prévisualiser les énoncés et corrigés.",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "qfortier",
   "license": "UNLICENSED",
   "engines": {
@@ -32,25 +32,25 @@
     "commands": [
       {
         "command": "exercicesMpi.addCurrent",
-        "title": "Ajouter au document en cours",
+        "title": "Ajouter à la feuille en cours",
         "category": "Exercices Typst",
         "icon": "$(add)"
       },
       {
         "command": "exercicesMpi.memberUp",
-        "title": "Monter dans le document",
+        "title": "Monter dans la feuille",
         "category": "Exercices Typst",
         "icon": "$(arrow-up)"
       },
       {
         "command": "exercicesMpi.memberDown",
-        "title": "Descendre dans le document",
+        "title": "Descendre dans la feuille",
         "category": "Exercices Typst",
         "icon": "$(arrow-down)"
       },
       {
         "command": "exercicesMpi.memberRemove",
-        "title": "Retirer du document",
+        "title": "Retirer de la feuille",
         "category": "Exercices Typst",
         "icon": "$(close)"
       },
@@ -68,19 +68,19 @@
       },
       {
         "command": "exercicesMpi.newFolderSheets",
-        "title": "Ajouter un dossier de documents",
+        "title": "Ajouter un dossier de feuilles",
         "category": "Exercices Typst",
         "icon": "$(new-folder)"
       },
       {
         "command": "exercicesMpi.searchSheets",
-        "title": "Rechercher des documents",
+        "title": "Rechercher des feuilles",
         "category": "Exercices Typst",
         "icon": "$(search)"
       },
       {
         "command": "exercicesMpi.filtersSheets",
-        "title": "Filtrer les documents",
+        "title": "Filtrer les feuilles",
         "category": "Exercices Typst",
         "icon": "$(filter)"
       },
@@ -98,7 +98,7 @@
       },
       {
         "command": "exercicesMpi.newSheet",
-        "title": "Créer un document",
+        "title": "Créer une feuille",
         "category": "Exercices Typst",
         "icon": "$(file-add)"
       },
@@ -109,7 +109,7 @@
       },
       {
         "command": "exercicesMpi.toggleSheets",
-        "title": "Basculer dossiers / liste des documents",
+        "title": "Basculer dossiers / liste des feuilles",
         "category": "Exercices Typst"
       },
       {
@@ -228,7 +228,7 @@
         },
         {
           "id": "exercicesMpi.sheets",
-          "name": "Documents"
+          "name": "Feuilles"
         }
       ]
     },

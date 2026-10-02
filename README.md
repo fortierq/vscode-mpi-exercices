@@ -3,10 +3,11 @@
 Installer le VSIX de `releases/`, puis ouvrir une banque `exercices-mpi` approuvée. Prérequis : VS Code ≥ 1.100 et Nix ou Make/Typst/Python. Tinymist est facultatif (testé avec 0.15.8).
 
 - **Fichier actuel** : liens métadonnées et barème, questions et exercices cliquables ; parties repliées.
-- **Exercices** : banque réutilisable. **Documents** : TD, devoirs, concours et types personnalisés, recherche commune, filtre par type, dossiers repliables ou liste. Aucun classement imposé : le type est déclaré dans `fiche.with(type: "…", ...)`.
+- **Exercices** : banque réutilisable. **Feuilles** : TD, devoirs, concours et types personnalisés, recherche commune, filtre par type, dossiers repliables ou liste. Aucun classement imposé : le type est déclaré dans `feuille.with(type: "…", ...)`.
+- Seuls les dossiers contenant un fichier visible dans la vue sont affichés, sous-dossiers et filtres compris. Un nouveau dossier vide apparaît dès qu'un fichier y est ajouté.
 - La recherche sert uniquement à choisir et ouvrir un fichier, avec ses métadonnées. La saisie affine la liste mais ne filtre jamais le panneau. Entrée ouvre le fichier sélectionné ; Échap annule. Les filtres de métadonnées déjà actifs restent appliqués.
 - Le catalogue est actualisé automatiquement toutes les 5 secondes si des sources Typst ont changé sur disque (imports compris). Aucune reconstruction sans changement ; les erreurs sont signalées sans remplacer le dernier catalogue valide.
-- **Créer un document** propose les modèles de `templates/`, puis un emplacement libre. Ajouter un type revient à ajouter un modèle avec un autre `type`. TD et devoirs démarrent vides : les sélectionner dans **Documents**, puis ajouter ou glisser des exercices.
+- **Créer une feuille** propose les modèles de `templates/`, puis un emplacement libre. Ajouter un type revient à ajouter un modèle avec un autre `type`. TD et devoirs démarrent vides : les sélectionner dans **Feuilles**, puis ajouter ou glisser des exercices.
 - Barème dans `question(..., points: ...)`, sans notes d'élèves. Les points suivent les questions. Les anciens tableaux `bareme` restent compatibles ; un document portant ce tableau doit être réorganisé dans la source pour ne pas décaler les points.
 - Réordonner les exercices par glisser-déposer ou avec les flèches ; **×** retire aussi l'import. Ces modifications sont enregistrées automatiquement et restent annulables. Un import utilisé ailleurs n'est pas supprimé silencieusement.
 - Déplacer les fichiers en les glissant sur un dossier ou dans le fond de leur section. Les références Typst littérales sont actualisées ; vérifier les chemins calculés et les références externes.
@@ -19,9 +20,9 @@ Dans un éditeur Typst ou une liste du panneau Exercices Typst (hors champs de s
 
 | Touche | Seule | Avec Maj |
 | --- | --- | --- |
-| F2 | Chercher un exercice | Chercher un document |
-| F3 | Filtrer les exercices | Filtrer les documents |
-| F4 | Ajouter un exercice | Créer un document |
+| F2 | Chercher un exercice | Chercher une feuille |
+| F3 | Filtrer les exercices | Filtrer les feuilles |
+| F4 | Ajouter un exercice | Créer une feuille |
 | F5 | Afficher l'énoncé | Télécharger l'énoncé |
 | F6 | Afficher le corrigé | Télécharger le corrigé |
 

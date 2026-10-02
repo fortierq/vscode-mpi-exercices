@@ -9,7 +9,7 @@ export interface SheetList { start: number; end: number; entries: SheetEntry[]; 
 export function sheetList(text: string, source: string): SheetList {
   const code = mask(text);
   const fields = [...code.matchAll(/\bexercices\s*:\s*\(/g)];
-  const show = /#show\s*:\s*(?:fiche|feuille)\.with\s*\(/.exec(code);
+  const show = /#show\s*:\s*feuille\.with\s*\(/.exec(code);
   if (fields.length !== 1 || !show) throw new Error('Composition calculée ou non reconnue : modifiez cette feuille dans la source.');
   let depth = 1; let stop = show.index + show[0].length;
   while (stop < code.length && depth) { if (code[stop] === '(') depth++; if (code[stop] === ')') depth--; stop++; }
@@ -51,7 +51,7 @@ export function editSheet(text: string, source: string, operation: { index: numb
   const list = sheetList(text, source);
   // A flat marking scheme follows question order: never silently attach points to different questions.
   const code = mask(text);
-  const show = /#show\s*:\s*(?:fiche|feuille)\.with\s*\(/.exec(code)!;
+  const show = /#show\s*:\s*feuille\.with\s*\(/.exec(code)!;
   let depth = 1; let end = show.index + show[0].length;
   while (end < code.length && depth) { if (code[end] === '(') depth++; if (code[end] === ')') depth--; end++; }
   const fields = code.slice(show.index + show[0].length, end - 1);
@@ -93,7 +93,7 @@ export function sourceMetadata(text: string, source: string): Exercise {
   let clean = mask(text, false);
   {
     const code = mask(text);
-    const show = /#show\s*:\s*(?:fiche|feuille)\.with\s*\(/.exec(code);
+    const show = /#show\s*:\s*feuille\.with\s*\(/.exec(code);
     if (show) {
       const start = show.index + show[0].length;
       let end = start; let depth = 1;

@@ -62,7 +62,7 @@ export class Sheets implements vscode.Disposable {
     if (!(await realpath(path.join(bank.root, sheet))).startsWith(bank.root + path.sep)) throw new Error('La feuille doit rester dans la banque.');
     const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(bank.root, sheet)));
     const text = doc.getText();
-    if (identify(text, sheet)?.kind !== 'document') throw new Error('Choisissez un document utilisant fiche.with(...).');
+    if (identify(text, sheet)?.kind !== 'document') throw new Error('Choisissez un document utilisant feuille.with(...).');
     if (snapshot !== undefined && snapshot !== text) throw new Error('La feuille a changé ; recommencez depuis la vue actualisée.');
     const result = editSheet(text, sheet, operation);
     const edit = new vscode.WorkspaceEdit();

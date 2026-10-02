@@ -12,7 +12,7 @@ import { Browser, BrowserNode, Source } from './browser';
 import { isFolder } from './tree';
 import { Sheets, SheetMember } from './sheets';
 import { sourceMetadata } from './sheet-model';
-import { directories, newFolder, moveSource, deleteSource, Location } from './files';
+import { newFolder, moveSource, deleteSource, Location } from './files';
 import { Drag } from './drag';
 import { Refresh } from './refresh';
 import { searchPicker } from './search';
@@ -80,7 +80,6 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       return item;
     }));
-    browser.directories = [...browser.directories.filter(item => item.bank.root !== bank.root), ...await directories(bank, '')];
     browser.entries = [...browser.entries.filter(entry => entry.bank.root !== bank.root), ...sources.filter((source): source is Source => !!source)];
     update();
   }
@@ -93,7 +92,7 @@ export async function activate(context: vscode.ExtensionContext) {
   }
   async function discover(): Promise<void> {
     for (const watcher of watchers) watcher.dispose(); watchers = [];
-    banks = []; for (const browser of browsers) { browser.entries = []; browser.directories = []; }
+    banks = []; for (const browser of browsers) browser.entries = [];
     const seen = new Set<string>();
     for (const folder of vscode.workspace.workspaceFolders ?? []) {
       if (folder.uri.scheme !== 'file') continue;
@@ -163,7 +162,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const info = identify((await vscode.workspace.openTextDocument(uri)).getText(), source);
         if (info) return checkSource({ bank, source, documentType: info.type });
       }
-      if (argument) throw new Error('Choisissez un exercice exportant ex ou un document utilisant fiche.with(...).');
+      if (argument) throw new Error('Choisissez un exercice exportant ex ou un document utilisant feuille.with(...).');
     }
     const picked = await vscode.window.showQuickPick(library.visible.map(item => ({ label: item.ex?.titre ?? item.source, description: item.bank.name, detail: item.source, item })), { placeHolder: 'Choisir un exercice', matchOnDetail: true });
     return picked ? checkSource(picked.item) : undefined;
@@ -206,8 +205,8 @@ export async function activate(context: vscode.ExtensionContext) {
     await vscode.window.showTextDocument(vscode.Uri.file(path.join(source.bank.root, source.source)));
   });
   register('filters' + suffix, async () => {
-    const options = [...(browser === sheets ? [{ label: 'Type de document', description: browser.filters.type ? typeLabel(browser.filters.type) : 'Tous', key: 'type' as const }] : []), ...facets.map(key => ({ label: labels[key], description: browser.filters[key] ?? 'Tous', key })), { label: 'Difficulté maximale', description: String(browser.filters.difficulteMax ?? 'Toutes'), key: 'difficulteMax' as const }];
-    const chosen = await vscode.window.showQuickPick(options, { title: browser === sheets ? 'Filtrer les documents' : 'Filtrer les exercices' }); if (!chosen) return;
+    const options = [...(browser === sheets ? [{ label: 'Type de feuille', description: browser.filters.type ? typeLabel(browser.filters.type) : 'Tous', key: 'type' as const }] : []), ...facets.map(key => ({ label: labels[key], description: browser.filters[key] ?? 'Tous', key })), { label: 'Difficulté maximale', description: String(browser.filters.difficulteMax ?? 'Toutes'), key: 'difficulteMax' as const }];
+    const chosen = await vscode.window.showQuickPick(options, { title: browser === sheets ? 'Filtrer les feuilles' : 'Filtrer les exercices' }); if (!chosen) return;
     const key = chosen.key;
     const metadata = browser.entries.flatMap(item => item.ex ? [item.ex] : item.metadata ?? []);
     const types = [...Object.keys(typeLabels), ...browser.entries.flatMap(item => item.documentType ?? []), ...(await Promise.all(banks.map(documentTemplates))).flat().map(template => template.type)];

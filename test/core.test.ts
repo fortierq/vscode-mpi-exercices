@@ -220,14 +220,14 @@ test('composition : protéger le barème personnalisé, conserver les barèmes h
 test('documents : type déclaré, indépendant du dossier, anciens appels compatibles', () => {
   assert.equal(outline('question(points: 1.5, [Question notée], solution: [Réponse])')[0].title, '1. Question notée');
   for (const source of ['ds.typ', 'classe/graphes/ds.typ', 'exercices/test.typ']) {
-    assert.deepEqual(identify('#show: fiche.with(type: "devoir", exercices: ())', source), { kind: 'document', type: 'devoir', direct: true });
+    assert.deepEqual(identify('#show: feuille.with(type: "devoir", exercices: ())', source), { kind: 'document', type: 'devoir', direct: true });
   }
-  assert.equal(identify('#show: fiche.with(type: "colle", exercices: ())')?.type, 'colle');
+  assert.equal(identify('#show: feuille.with(type: "colle", exercices: ())')?.type, 'colle');
   assert.equal(identify('#show: feuille.with(exercices: ())')?.type, 'td');
   assert.equal(identify('#let ex = exercice()', 'racine.typ')?.kind, 'exercice');
   assert.equal(identify('#import "/sujet.typ": ex', 'alias.typ')?.kind, 'exercice');
   assert.equal(identify('#import "/sujet.typ": autre as ex', 'alias.typ')?.kind, 'exercice');
-  for (const source of ['// #show: fiche.with()', '/* #let ex = exercice() */', '`#let ex = exercice()`', '#let texte = "#show: fiche.with()"']) assert.equal(identify(source), undefined);
-  const fiche = editableSheet.replace('feuille.with(', 'fiche.with(type: "devoir",');
-  assert.equal(sheetList(editSheet(fiche, 'libre.typ', { index: 0 }), 'libre.typ').entries.length, 1);
+  for (const source of ['// #show: feuille.with()', '/* #let ex = exercice() */', '`#let ex = exercice()`', '#let texte = "#show: feuille.with()"']) assert.equal(identify(source), undefined);
+  const feuille = editableSheet.replace('feuille.with(', 'feuille.with(type: "devoir",');
+  assert.equal(sheetList(editSheet(feuille, 'libre.typ', { index: 0 }), 'libre.typ').entries.length, 1);
 });

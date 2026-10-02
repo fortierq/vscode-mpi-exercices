@@ -1,5 +1,10 @@
 # Journal des versions
 
+## 0.6.1
+
+- Section Feuilles et API unique `feuille.with(...)` ; modèles et sources migrés.
+- Dossiers affichés uniquement s'ils contiennent des fichiers visibles dans la vue, sous-dossiers et filtres compris.
+
 ## 0.6.0
 
 - Trois sections : Fichier, Exercices et Documents ; recherche commune et filtre de type pour TD, devoirs, concours et types personnalisés.

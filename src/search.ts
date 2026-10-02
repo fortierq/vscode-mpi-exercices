@@ -25,7 +25,7 @@ export function searchItem(source: Source): Choice {
 
 export function searchPicker(browser: Browser): Promise<Source | undefined> {
   const picker = vscode.window.createQuickPick<Choice>();
-  picker.title = `Rechercher : ${browser.category}`;
+  picker.title = `Rechercher : ${browser.category === 'exercices' ? 'exercices' : 'feuilles'}`;
   picker.placeholder = 'Titre, chemin, concours, chapitre… Entrée : ouvrir le fichier sélectionné.';
   const refresh = () => {
     const items = browser.search(picker.value).map(searchItem).sort((a, b) => a.label.localeCompare(b.label, 'fr', { numeric: true }));

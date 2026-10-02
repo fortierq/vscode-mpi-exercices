@@ -9,7 +9,7 @@ export interface SourceKind { kind: 'exercice' | 'document'; type?: string; dire
 // Literal type declarations are indexable without compiling every file while typing.
 export function identify(text: string, source = ''): SourceKind | undefined {
   const code = mask(text);
-  const show = /#show\s*:\s*(fiche|feuille)\.with\s*\(/.exec(code);
+  const show = /#show\s*:\s*feuille\.with\s*\(/.exec(code);
   if (show) {
     const start = show.index + show[0].length;
     let end = start; let depth = 1;

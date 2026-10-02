@@ -32,7 +32,7 @@ export async function run(): Promise<void> {
   const manifest = extension.packageJSON.contributes;
   const commands = await vscode.commands.getCommands(true);
   assert.deepEqual(manifest.views.exercicesMpi.map((view: { id: string }) => view.id), ['exercicesMpi.current', 'exercicesMpi.library', 'exercicesMpi.sheets']);
-  assert.equal(manifest.views.exercicesMpi.at(-1).name, 'Documents');
+  assert.equal(manifest.views.exercicesMpi.at(-1).name, 'Feuilles');
   for (const section of ['current', 'library', 'sheets']) {
     await vscode.commands.executeCommand(`exercicesMpi.${section}.focus`);
     assert.ok((await vscode.commands.getCommands(true)).includes(`workbench.actions.treeView.exercicesMpi.${section}.collapseAll`));
@@ -212,6 +212,19 @@ export async function run(): Promise<void> {
     assert.equal(sheetBrowser.visible.length, 1);
     assert.equal(sheetBrowser.search('Concours').length, 1);
     assert.equal(sheetBrowser.getChildren().length, 1);
+    sheetBrowser.filters = { type: 'absent' };
+    assert.deepEqual(sheetBrowser.getChildren(), [], 'Aucun dossier sans fichier correspondant aux filtres');
+    const originalEntries = [...sheetBrowser.entries];
+    const otherBank = { ...previewBank, root: temporary + '-autre', name: 'Autre banque' };
+    sheetBrowser.entries.push({ ...originalEntries[0], bank: otherBank });
+    sheetBrowser.filters = { type: 'concours' };
+    const filteredRoots = sheetBrowser.getChildren();
+    assert.equal(filteredRoots.length, 1, 'Aucune racine de banque vide');
+    assert.ok(isFolder(filteredRoots[0]) && filteredRoots[0].title === 'concours');
+    sheetBrowser.filters = {};
+    sheetBrowser.entries = [];
+    assert.deepEqual(sheetBrowser.getChildren(), [], 'La suppression du dernier fichier retire ses dossiers');
+    sheetBrowser.entries = originalEntries;
     sheetBrowser.filters = {};
     sheetBrowser.toggle(); assert.equal(sheetBrowser.getChildren().length, 3);
     assert.ok(sheetBrowser.getChildren().every(node => !isFolder(node)));
