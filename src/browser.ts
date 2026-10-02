@@ -21,11 +21,14 @@ export class Browser implements vscode.TreeDataProvider<BrowserNode>, vscode.Dis
     this.flat = state.get(`flat.${category}`, false);
   }
   get visible(): Source[] {
+    return this.search(this.query);
+  }
+  search(query: string): Source[] {
     return this.entries.filter(item => {
       const metadata = item.ex ? [item.ex] : item.metadata ?? [];
-      if (!metadata.length) return !Object.values(this.filters).some(Boolean) && normalize(item.source).includes(normalize(this.query));
+      if (!metadata.length) return !Object.values(this.filters).some(Boolean) && normalize(item.source).includes(normalize(query));
       // A sheet matches when one member satisfies all facets. Its own title is searchable too.
-      return metadata.some(ex => matches({ ...ex, titre: `${metadata[0].titre} ${ex.titre}`, fichier: `${item.source} ${ex.fichier}` }, this.query, this.filters));
+      return metadata.some(ex => matches({ ...ex, titre: `${metadata[0].titre} ${ex.titre}`, fichier: `${item.source} ${ex.fichier}` }, query, this.filters));
     });
   }
   get searching(): boolean { return !!this.query.trim() || Object.values(this.filters).some(Boolean); }

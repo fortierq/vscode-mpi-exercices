@@ -1,5 +1,9 @@
 # Journal des versions
 
+## 0.5.13
+
+- Recherche rapide d'exercices, feuilles et concours : résultats avec métadonnées, ouverture d'un fichier ou application du filtre à la vue.
+
 ## 0.5.12
 
 - Catalogue reconstruit toutes les 5 secondes seulement après modification de sources, sans exécutions concurrentes.

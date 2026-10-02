@@ -14,6 +14,7 @@ import { sourceMetadata } from './sheet-model';
 import { directories, newFolder, moveSource, deleteSource, Location } from './files';
 import { Drag } from './drag';
 import { Refresh } from './refresh';
+import { searchPicker } from './search';
 
 export async function activate(context: vscode.ExtensionContext) {
   const runner = new Runner();
@@ -192,8 +193,16 @@ export async function activate(context: vscode.ExtensionContext) {
   for (const [index, browser] of browsers.entries()) {
   const suffix = ['', 'Sheets', 'Contests'][index];
   register('search' + suffix, async () => {
-    const query = await vscode.window.showInputBox({ title: `Rechercher : ${browser.category}`, prompt: 'Titre, fichier ou métadonnées ; accents ignorés.', value: browser.query });
-    if (query !== undefined) { browser.query = query.trim(); update(); await vscode.commands.executeCommand(`exercicesMpi.${['library', 'sheets', 'contests'][index]}.focus`); }
+    await discovery;
+    const result = await searchPicker(browser);
+    if (!result) return;
+    browser.query = result.query; update();
+    if (result.source) {
+      const source = await checkSource(result.source);
+      if (browser === sheets) sheetEditor.selected = source;
+      await [view, sheetView, contestView][index].reveal(source, { select: true });
+      await vscode.window.showTextDocument(vscode.Uri.file(path.join(source.bank.root, source.source)));
+    } else await vscode.commands.executeCommand(`exercicesMpi.${['library', 'sheets', 'contests'][index]}.focus`);
   });
   register('filters' + suffix, async () => {
     const options = [...facets.map(key => ({ label: labels[key], description: browser.filters[key] ?? 'Tous', key })), { label: 'Difficulté maximale', description: String(browser.filters.difficulteMax ?? 'Toutes'), key: 'difficulteMax' as const }];
