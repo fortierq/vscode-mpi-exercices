@@ -2,7 +2,7 @@
 
 Installer le VSIX de `releases/`, puis ouvrir une banque `exercices-mpi` approuvée. Prérequis : VS Code ≥ 1.100 et Nix ou Make/Typst/Python. Tinymist est facultatif (testé avec 0.15.8).
 
-- **Fichier actuel** : liens métadonnées et barème, questions et exercices cliquables ; parties repliées.
+- **Fichier** : liens métadonnées et barème, questions et exercices cliquables ; parties repliées.
 - **Exercices** : banque réutilisable. **Feuilles** : TD, devoirs, concours et types personnalisés, recherche commune, filtre par type, dossiers repliables ou liste. Aucun classement imposé : le type est déclaré dans `feuille.with(type: "…", ...)`.
 - Seuls les dossiers contenant un fichier visible dans la vue sont affichés, sous-dossiers et filtres compris. Un nouveau dossier vide apparaît dès qu'un fichier y est ajouté.
 - La recherche sert uniquement à choisir et ouvrir un fichier, avec ses métadonnées. La saisie affine la liste mais ne filtre jamais le panneau. Entrée ouvre le fichier sélectionné ; Échap annule. Les filtres de métadonnées déjà actifs restent appliqués.

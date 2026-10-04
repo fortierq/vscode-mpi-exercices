@@ -2,7 +2,7 @@
   "name": "vscode-exercices-mpi",
   "displayName": "Exercices Typst",
   "icon": "media/icon-sidebar.png",
-  "description": "Parcourir une banque d'exercices Typst, composer des feuilles et prévisualiser les énoncés et corrigés.",
+  "description": "Exercices Typst.",
   "version": "0.6.1",
   "publisher": "qfortier",
   "license": "UNLICENSED",
@@ -62,13 +62,13 @@
       },
       {
         "command": "exercicesMpi.newFolderLibrary",
-        "title": "Ajouter un dossier d'exercices",
+        "title": "Ajouter un dossier",
         "category": "Exercices Typst",
         "icon": "$(new-folder)"
       },
       {
         "command": "exercicesMpi.newFolderSheets",
-        "title": "Ajouter un dossier de feuilles",
+        "title": "Ajouter un dossier",
         "category": "Exercices Typst",
         "icon": "$(new-folder)"
       },
@@ -162,7 +162,7 @@
       },
       {
         "command": "exercicesMpi.compileBoth",
-        "title": "Exporter les PDF énoncé et corrigé (make c)",
+        "title": "Compiler énoncé et corrigé (make c)",
         "category": "Exercices Typst"
       },
       {
@@ -220,7 +220,7 @@
       "exercicesMpi": [
         {
           "id": "exercicesMpi.current",
-          "name": "Fichier actuel"
+          "name": "Fichier"
         },
         {
           "id": "exercicesMpi.library",

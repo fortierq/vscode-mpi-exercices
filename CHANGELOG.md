@@ -96,7 +96,7 @@
 
 ## 0.3.0 — Exercices Typst
 
-- Quatre sections : Fichier actuel, Exercices, Feuilles, Concours ; arborescences repliables ou listes.
+- Quatre sections : Fichier, Exercices, Feuilles, Concours ; arborescences repliables ou listes.
 - Métadonnées accessibles par un lien ; parties du plan repliées par défaut.
 - Cases à cocher dans la recherche ; création des feuilles dans l'ordre de la sélection affichée sous Feuilles.
 - Aperçu Tinymist à la frappe, navigation précise dans les deux sens, thème sombre et variantes conservées en mémoire.
