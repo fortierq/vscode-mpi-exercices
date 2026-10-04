@@ -1,3 +1,7 @@
+## 0.7.1
+
+- Accepter les traits de soulignement lors de la création de fichiers, notamment `nom_prenom.typ` pour les copies.
+
 ## 0.7.0
 
 - Renommer l'extension en `vscode-mpi-exercices`, avec les commandes et réglages `mpiExercices.*`.

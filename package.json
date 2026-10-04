@@ -3,7 +3,7 @@
   "displayName": "Exercices Typst",
   "icon": "media/icon-sidebar.png",
   "description": "Exercices Typst.",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "publisher": "qfortier",
   "license": "UNLICENSED",
   "engines": {

@@ -69,7 +69,7 @@ export async function newExercise(bank: Bank, entries: BankEntry[], targetDirect
   if (!difficultyChoice) canceled();
   const minutesText = await input('Durée estimée en minutes (0 : non estimée)', '20', value => /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) ? undefined : 'Entrez un nombre entier positif ou nul.');
   const directory = targetDirectory ?? await chooseDirectory();
-  const identifier = await input('Identifiant unique (nom du fichier)', slug(title), value => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? undefined : 'Utilisez des lettres minuscules, chiffres et tirets.');
+  const identifier = await input('Identifiant unique (nom du fichier)', slug(title), value => /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/.test(value) ? undefined : 'Utilisez des lettres minuscules, chiffres, tirets et traits de soulignement.');
   const existing = await vscode.workspace.findFiles(new vscode.RelativePattern(vscode.Uri.file(bank.root), '**/*.typ'), sourceExclusions);
   for (const uri of existing.filter(uri => path.basename(uri.fsPath, '.typ') === identifier)) {
     if (identify((await vscode.workspace.openTextDocument(uri)).getText(), path.relative(bank.root, uri.fsPath))?.kind === 'exercice') throw new Error(`L'identifiant ${identifier} existe déjà dans la banque.`);
@@ -101,7 +101,7 @@ export async function newSheet(bank: Bank, directory?: string): Promise<vscode.U
   const template = await vscode.window.showQuickPick(templates, { title: 'Type de feuille / modèle' }) ?? canceled();
   const title = await input('Titre de la feuille', template.type === 'td' ? 'Travaux dirigés' : template.label);
   directory ??= await chooseDirectory();
-  const identifier = await input('Nom du fichier de la feuille', slug(title), value => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? undefined : 'Utilisez des lettres minuscules, chiffres et tirets.');
+  const identifier = await input('Nom du fichier de la feuille', slug(title), value => /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/.test(value) ? undefined : 'Utilisez des lettres minuscules, chiffres, tirets et traits de soulignement.');
   const composition = /^#import\s+"\/templates\/exercice.typ"/m.test(template.text);
   const content = composition ? sheetFromTemplate(template.text, title, []) : contestFromTemplate(template.text, title);
   return create(bank, creationPath(directory, identifier), content);

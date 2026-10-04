@@ -33,6 +33,7 @@ test('création dans un dossier libre ou à la racine, sans traversée', () => {
   assert.equal(creationPath('devoirs/2026-2027', 'ds-1'), 'devoirs/2026-2027/ds-1.typ');
   assert.equal(creationPath('classe/chapitre', 'td-test'), 'classe/chapitre/td-test.typ');
   assert.equal(creationPath('', 'sujet'), 'sujet.typ');
+  assert.equal(creationPath('2026/ds/ds1/copies', 'goodall_mael'), '2026/ds/ds1/copies/goodall_mael.typ');
   for (const folder of ['..', 'feuilles/../concours', '/feuilles']) assert.throws(() => creationPath(folder, 'test'));
   assert.throws(() => creationPath('feuilles', '../test'));
   const template = 'titre: "Modèle",\nconcours: none,\ncontenu: (question([Question]),)';

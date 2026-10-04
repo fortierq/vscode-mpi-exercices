@@ -1,7 +1,7 @@
 import { normalize, safeSource } from './core';
 
 export function creationPath(directory: string, identifier: string): string {
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(identifier)) throw new Error('Nom de fichier invalide.');
+  if (!/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/.test(identifier)) throw new Error('Nom de fichier invalide.');
   return safeSource(`${directory ? directory + '/' : ''}${identifier}.typ`);
 }
 
