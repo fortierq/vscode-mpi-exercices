@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
+import { existsSync } from 'node:fs';
 import { readFile, realpath } from 'node:fs/promises';
 import { Bank } from './runner';
 import { Exercise, normalize, safeSource } from './core';
@@ -20,7 +21,7 @@ async function select(title: string, values: string[], required = false): Promis
 }
 
 export async function selectBank(banks: Bank[]): Promise<Bank> {
-  if (!banks.length) throw new Error("Ouvrez d'abord une banque exercices-mpi.");
+  if (!banks.length) throw new Error("Ouvrez d'abord une banque mpi-exercices.");
   if (banks.length === 1) return banks[0];
   const chosen = await vscode.window.showQuickPick(banks.map(bank => ({ label: bank.name, description: bank.root, bank })), { title: 'Choisir une banque' });
   return chosen?.bank ?? canceled();
@@ -52,6 +53,7 @@ async function create(bank: Bank, relative: string, content: string): Promise<vs
 }
 
 export async function newExercise(bank: Bank, entries: BankEntry[], targetDirectory?: string): Promise<vscode.Uri> {
+  if (!existsSync(path.join(bank.root, 'lib/meta.typ'))) throw new Error('Créez les exercices dans la banque mpi-exercices.');
   const title = await input("Nouvel exercice — titre");
   const duplicate = entries.find(entry => entry.bank.root === bank.root && normalize(entry.ex.titre).trim() === normalize(title).trim());
   if (duplicate) { await vscode.window.showTextDocument(vscode.Uri.file(path.join(bank.root, duplicate.ex.fichier))); throw new Error('Un exercice porte déjà ce titre ; sa source a été ouverte pour comparaison.'); }

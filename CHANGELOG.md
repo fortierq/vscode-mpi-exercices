@@ -1,3 +1,9 @@
+## 0.7.0
+
+- Renommer l'extension en `vscode-mpi-exercices`, avec les commandes et réglages `mpiExercices.*`.
+- Prendre en charge le dépôt privé `corrections` et les statistiques des copies dans Tinymist.
+- Utiliser la banque/package `mpi-exercices`.
+
 # Journal des versions
 
 ## 0.6.2

@@ -26,18 +26,55 @@ async function until(condition: () => boolean | Promise<boolean>, message: strin
 }
 
 export async function run(): Promise<void> {
-  const extension = vscode.extensions.getExtension('qfortier.vscode-exercices-mpi');
+  const extension = vscode.extensions.getExtension('qfortier.vscode-mpi-exercices');
   assert.ok(extension, 'Extension chargée');
   const api = await extension.activate();
+  if (process.env.MPI_CORRECTIONS_TEST) {
+    assert.equal(api.getEntries().length, 0, 'Les copies ne sont pas des exercices');
+    const temporary = await realpath(await mkdtemp(path.join(tmpdir(), 'mpi-corrections-test-')));
+    const project = { root: temporary, name: 'Corrections fictives', scope: vscode.Uri.file(temporary) };
+    const runner = new Runner();
+    try {
+      const root = process.env.MPI_EXERCICES_BANK!;
+      for (const file of ['lib', 'templates', 'scripts', 'Makefile', 'flake.nix', 'flake.lock'])
+        await cp(path.join(root, file), path.join(temporary, file), { recursive: true });
+      const source = '2026/ds/test/copies/exemple.typ';
+      await mkdir(path.dirname(path.join(temporary, source)), { recursive: true });
+      const template = await readFile(path.join(temporary, 'templates/copie.typ'), 'utf8');
+      const document = contestFromTemplate(template, 'Copie fictive');
+      assert.equal(identify(document)?.type, 'copie');
+      await writeFile(path.join(temporary, source), document);
+      await writeFile(path.join(temporary, '2026/liste-classe.csv'), 'MPI;Nom;Prénom\n');
+      vscode.workspace.updateWorkspaceFolders(vscode.workspace.workspaceFolders!.length, 0,
+        { uri: project.scope, name: project.name });
+      await until(async () => {
+        try { return (await api.revealSheet(source)).source === source; } catch { return false; }
+      }, 'Le dépôt de corrections est découvert');
+      assert.deepEqual((await documentTemplates(project)).map(template => template.type), ['copie']);
+      await runner.run(project, ['c', source]);
+      for (const variant of ['enonce', 'corrige'])
+        assert.ok((await stat(path.join(temporary, 'build/2026/ds/test/copies/exemple', variant + '.pdf'))).size > 0);
+      const stats = JSON.parse(await readFile(path.join(temporary, '2026/ds/test/copies/notes.moyennes.json'), 'utf8'));
+      assert.equal(stats['effectif-classe'], 1);
+      assert.equal(stats.effectif, 0);
+      console.log('Corrections : découverte, modèle, notes et exports vérifiés, sans lecture des PDF.');
+    } finally {
+      runner.dispose();
+      const index = vscode.workspace.workspaceFolders?.findIndex(folder => folder.uri.fsPath === temporary) ?? -1;
+      if (index >= 0) vscode.workspace.updateWorkspaceFolders(index, 1);
+      await rm(temporary, { recursive: true, force: true });
+    }
+    return;
+  }
   assert.ok(api.getEntries().length > 0, 'Banque détectée avec lib/exercice.typ');
   const manifest = extension.packageJSON.contributes;
   const commands = await vscode.commands.getCommands(true);
-  assert.deepEqual(manifest.views.exercicesMpi.map((view: { id: string }) => view.id), ['exercicesMpi.current', 'exercicesMpi.library', 'exercicesMpi.sheets']);
-  assert.equal(manifest.views.exercicesMpi.at(-1).name, 'Feuilles');
+  assert.deepEqual(manifest.views.mpiExercices.map((view: { id: string }) => view.id), ['mpiExercices.current', 'mpiExercices.library', 'mpiExercices.sheets']);
+  assert.equal(manifest.views.mpiExercices.at(-1).name, 'Feuilles');
   for (const section of ['current', 'library', 'sheets']) {
-    await vscode.commands.executeCommand(`exercicesMpi.${section}.focus`);
-    assert.ok((await vscode.commands.getCommands(true)).includes(`workbench.actions.treeView.exercicesMpi.${section}.collapseAll`));
-    await vscode.commands.executeCommand(`exercicesMpi.collapse${section}`);
+    await vscode.commands.executeCommand(`mpiExercices.${section}.focus`);
+    assert.ok((await vscode.commands.getCommands(true)).includes(`workbench.actions.treeView.mpiExercices.${section}.collapseAll`));
+    await vscode.commands.executeCommand(`mpiExercices.collapse${section}`);
   }
   for (const binding of manifest.keybindings) assert.ok(commands.includes(binding.command), binding.command);
   for (const item of manifest.menus['view/title']) {
@@ -46,18 +83,18 @@ export async function run(): Promise<void> {
   }
   for (const uri of await vscode.workspace.findFiles('feuilles/**/*.typ')) {
     const doc = await vscode.workspace.openTextDocument(uri);
-    sheetList(doc.getText(), path.relative(process.env.EXERCICES_MPI_BANK!, uri.fsPath));
+    sheetList(doc.getText(), path.relative(process.env.MPI_EXERCICES_BANK!, uri.fsPath));
   }
   const sheetFiles = await vscode.workspace.findFiles('feuilles/**/*.typ');
-  const nestedSheet = sheetFiles.find(uri => path.relative(process.env.EXERCICES_MPI_BANK!, uri.fsPath).split(path.sep).length > 2) ?? sheetFiles[0];
+  const nestedSheet = sheetFiles.find(uri => path.relative(process.env.MPI_EXERCICES_BANK!, uri.fsPath).split(path.sep).length > 2) ?? sheetFiles[0];
   assert.ok(nestedSheet, 'Une feuille existante pour tester reveal');
-  const revealed = await api.revealSheet(path.relative(process.env.EXERCICES_MPI_BANK!, nestedSheet.fsPath));
-  assert.equal(revealed.source, path.relative(process.env.EXERCICES_MPI_BANK!, nestedSheet.fsPath), 'Sélection réelle de la feuille avec TreeView.reveal');
+  const revealed = await api.revealSheet(path.relative(process.env.MPI_EXERCICES_BANK!, nestedSheet.fsPath));
+  assert.equal(revealed.source, path.relative(process.env.MPI_EXERCICES_BANK!, nestedSheet.fsPath), 'Sélection réelle de la feuille avec TreeView.reveal');
   const results: Exercise[] = api.search('monoides', { concours: 'ENS' });
   assert.ok(results.some(ex => ex.fichier.endsWith('/automates-monoides.typ')));
-  const bank = process.env.EXERCICES_MPI_BANK!;
+  const bank = process.env.MPI_EXERCICES_BANK!;
   // No generated bank PDF is opened or inspected.
-  const temporary = await realpath(await mkdtemp(path.join(tmpdir(), 'exercices-mpi-preview-')));
+  const temporary = await realpath(await mkdtemp(path.join(tmpdir(), 'mpi-exercices-preview-')));
   const previewBank = { root: temporary, name: 'Test isolé', scope: vscode.Uri.file(temporary) };
   const previews = new Previews({ extensionUri: extension.extensionUri } as vscode.ExtensionContext, async () => undefined);
   const runner = new Runner();
@@ -159,7 +196,7 @@ export async function run(): Promise<void> {
     runner.output.show = () => { journalOpened++; };
     await assert.rejects(runner.run(previewBank, ['missing-test-target']), /compilation a échoué/);
     assert.equal(journalOpened, 0, "L'erreur n'ouvre pas le journal automatiquement");
-    await vscode.commands.executeCommand('exercicesMpi.showErrorDetails');
+    await vscode.commands.executeCommand('mpiExercices.showErrorDetails');
     assert.equal(journalOpened, 0, "Le clic ouvre Problems, jamais le journal");
     errorStatus.clear(`build:${previewBank.root}:missing-test-target`);
     runner.output.show = originalShow;

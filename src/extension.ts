@@ -24,8 +24,8 @@ export async function activate(context: vscode.ExtensionContext) {
   const sheets = new Browser('documents', context.workspaceState);
   const browsers = [library, sheets];
   const drag = <T>() => new Drag<T>(() => sheetEditor, relocate, error => report(error));
-  const view = vscode.window.createTreeView('exercicesMpi.library', { treeDataProvider: library, showCollapseAll: false, canSelectMany: true, dragAndDropController: drag<BrowserNode>() });
-  const sheetView = vscode.window.createTreeView('exercicesMpi.sheets', { treeDataProvider: sheets, showCollapseAll: false, dragAndDropController: drag<BrowserNode>() });
+  const view = vscode.window.createTreeView('mpiExercices.library', { treeDataProvider: library, showCollapseAll: false, canSelectMany: true, dragAndDropController: drag<BrowserNode>() });
+  const sheetView = vscode.window.createTreeView('mpiExercices.sheets', { treeDataProvider: sheets, showCollapseAll: false, dragAndDropController: drag<BrowserNode>() });
   let banks: Bank[] = [];
   let watchers: vscode.Disposable[] = [];
   let disposed = false;
@@ -53,7 +53,7 @@ export async function activate(context: vscode.ExtensionContext) {
       treeView.description = `${browser.visible.length} / ${browser.entries.length}`;
       treeView.message = [browser.filters.type && typeLabel(browser.filters.type), ...facets.filter(key => browser.filters[key]).map(key => `${labels[key]} : ${browser.filters[key]}`), browser.filters.difficulteMax && `Difficulté ≤ ${browser.filters.difficulteMax}`].filter(Boolean).join(' · ') || undefined;
       browser.changed.fire();
-      void vscode.commands.executeCommand('setContext', `exercicesMpi.searchActive.${['library', 'sheets'][index]}`, browser.searching);
+      void vscode.commands.executeCommand('setContext', `mpiExercices.searchActive.${['library', 'sheets'][index]}`, browser.searching);
       void context.workspaceState.update(browser === library ? 'search' : `search.${browser.category}`, { filters: browser.filters });
     }
   };
@@ -66,6 +66,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const metadata = new Map(entries().filter(entry => entry.bank.root === bank.root).map(entry => [entry.ex.fichier, entry.ex]));
     const sources = await Promise.all(files.map(async uri => {
       const source = path.relative(bank.root, uri.fsPath).split(path.sep).join('/');
+      if (source.split('/').includes('tmp')) return undefined;
       const text = (await vscode.workspace.openTextDocument(uri)).getText();
       const info = identify(text, source);
       if (!info || (browser === library) !== (info.kind === 'exercice')) return undefined;
@@ -96,9 +97,12 @@ export async function activate(context: vscode.ExtensionContext) {
     const seen = new Set<string>();
     for (const folder of vscode.workspace.workspaceFolders ?? []) {
       if (folder.uri.scheme !== 'file') continue;
-      const configured = vscode.workspace.getConfiguration('exercicesMpi', folder.uri).get<string>('bankPath', '');
+      const configured = vscode.workspace.getConfiguration('mpiExercices', folder.uri).get<string>('bankPath', '');
       const candidate = path.resolve(folder.uri.fsPath, configured || '.');
-      if (!['scripts/catalogue.py', 'templates/fiche.typ', 'lib/exercice.typ', 'Makefile'].every(file => existsSync(path.join(candidate, file)))) continue;
+      const banque = ['scripts/catalogue.py', 'templates/fiche.typ', 'lib/exercice.typ'];
+      const corrections = ['scripts/copies.py', 'templates/copie.typ', 'lib/copie.typ'];
+      if (!existsSync(path.join(candidate, 'Makefile')) ||
+          ![banque, corrections].some(files => files.every(file => existsSync(path.join(candidate, file))))) continue;
       const root = await realpath(candidate);
       if (seen.has(root)) continue; seen.add(root);
       const bank: Bank = { root, name: path.basename(root), scope: folder.uri }; banks.push(bank);
@@ -137,7 +141,7 @@ export async function activate(context: vscode.ExtensionContext) {
     update();
     sheetEditor.remember();
     sheetEditor.changed.fire();
-    if (!banks.length) view.message = 'Ouvrez une banque ou renseignez le réglage Bank Path.';
+    if (!banks.length) view.message = 'Ouvrez mpi-exercices ou corrections, ou renseignez le réglage Bank Path.';
   }
   const discoverQueued = () => { discovery = discovery.catch(() => undefined).then(discover); return discovery; };
   async function checkSource(source: Source): Promise<Source> {
@@ -182,7 +186,7 @@ export async function activate(context: vscode.ExtensionContext) {
   }
   const previews = new Previews(context, exportPdf);
   const register = (name: string, action: (...args: any[]) => unknown) => {
-    context.subscriptions.push(vscode.commands.registerCommand(`exercicesMpi.${name}`, async (...args: unknown[]) => {
+    context.subscriptions.push(vscode.commands.registerCommand(`mpiExercices.${name}`, async (...args: unknown[]) => {
       try { const result = await action(...args); errorStatus.clear('extension'); return result; } catch (error) { if (error instanceof vscode.CancellationError) return; report(error); }
     }));
   };
@@ -214,14 +218,14 @@ export async function activate(context: vscode.ExtensionContext) {
     const value = await vscode.window.showQuickPick([{ label: 'Tous / toutes', value: '' }, ...values.map(value => ({ label: key === 'type' ? typeLabel(value) : value, value }))], { title: chosen.label }); if (!value) return;
     if (!value.value) delete browser.filters[key]; else if (key === 'difficulteMax') browser.filters.difficulteMax = +value.value; else browser.filters[key] = value.value;
     update();
-    await vscode.commands.executeCommand(`exercicesMpi.${['library', 'sheets'][index]}.focus`);
+    await vscode.commands.executeCommand(`mpiExercices.${['library', 'sheets'][index]}.focus`);
   });
   register('reset' + suffix, () => { browser.filters = {}; update(); });
   }
-  register('openPanel', () => vscode.commands.executeCommand('workbench.view.extension.exercicesMpi'));
+  register('openPanel', () => vscode.commands.executeCommand('workbench.view.extension.mpiExercices'));
   for (const section of ['current', 'library', 'sheets']) register('collapse' + section, async () => {
-    await vscode.commands.executeCommand(`exercicesMpi.${section}.focus`);
-    await vscode.commands.executeCommand(`workbench.actions.treeView.exercicesMpi.${section}.collapseAll`);
+    await vscode.commands.executeCommand(`mpiExercices.${section}.focus`);
+    await vscode.commands.executeCommand(`workbench.actions.treeView.mpiExercices.${section}.collapseAll`);
   });
   async function revealSheet(source: Source): Promise<void> {
     sheets.filters = {}; update();
@@ -271,7 +275,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(sheetEditor.changed.event(() => { clearTimeout(sheetTimer); sheetTimer = setTimeout(() => { for (const bank of banks) void scan(bank, sheets).catch(report); }, 120); }), { dispose: () => clearTimeout(sheetTimer) });
   context.subscriptions.push(runner, ...browsers, view, sheetView, previews, currentFile, sheetEditor, errorStatus,
     vscode.workspace.onDidChangeWorkspaceFolders(() => { void discoverQueued().catch(report); }),
-    vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('exercicesMpi.bankPath')) void discoverQueued().catch(report); }),
+    vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('mpiExercices.bankPath')) void discoverQueued().catch(report); }),
     { dispose: () => { disposed = true; for (const watcher of watchers) watcher.dispose(); } });
   await discoverQueued();
   return {

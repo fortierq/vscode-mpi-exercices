@@ -1,6 +1,6 @@
 # Exercices Typst
 
-Installer le VSIX de `releases/`, puis ouvrir une banque `exercices-mpi` approuvée. Prérequis : VS Code ≥ 1.100 et Nix ou Make/Typst/Python. Tinymist est facultatif (testé avec 0.15.8).
+Installer le VSIX de `releases/`, puis ouvrir une banque `mpi-exercices` ou le dépôt privé `corrections` approuvé. Prérequis : VS Code ≥ 1.100 et Nix ou Make/Typst/Python. Tinymist est facultatif (testé avec 0.15.8).
 
 - **Fichier** : liens métadonnées et barème, questions et exercices cliquables ; parties repliées.
 - **Exercices** : banque réutilisable. **Feuilles** : TD, devoirs, concours et types personnalisés, recherche commune, filtre par type, dossiers repliables ou liste. Aucun classement imposé : le type est déclaré dans `feuille.with(type: "…", ...)`.
@@ -40,7 +40,7 @@ Avec Tinymist : rendu vectoriel actualisé à la frappe, positions source préci
 
 Les erreurs sont signalées dans la barre d'état : survol pour le détail, clic pour ouvrir uniquement Problems. L'indicateur disparaît après une nouvelle exécution réussie de la tâche concernée. L'indicateur et le bandeau Typst sont masqués pendant la saisie puis réaffichés après 2 secondes sans frappe si l'erreur persiste ; les diagnostics restent consultables dans Problems.
 
-La sauvegarde exporte le PDF courant ; **Exporter les PDF énoncé et corrigé** lance `make c`. Enregistrer les sources avant l'export. Réglages : `exercicesMpi.previewTheme`, `bankPath`, `execution`, `nixPath`, `makePath`.
+La sauvegarde exporte le PDF courant ; **Exporter les PDF énoncé et corrigé** lance `make c`. Enregistrer les sources avant l'export. Réglages : `mpiExercices.previewTheme`, `bankPath`, `execution`, `nixPath`, `makePath`.
 
 ## Développement
 
@@ -53,4 +53,19 @@ Depuis le terminal habituel, `make check` lance les tests avec Nix et
 Avec direnv et nix-direnv installés, `direnv allow` active automatiquement
 l'environnement décrit par `.envrc`.
 
-Tests dans un profil VS Code isolé et sur des documents temporaires ; aucun PDF de la banque inspecté. Variables : `EXERCICES_MPI_BANK`, `VSCODE_EXECUTABLE`, `TINYMIST_PATH`. Distribution locale, licence publique à choisir.
+Tests dans un profil VS Code isolé et sur des documents temporaires ; aucun PDF de la banque inspecté. Variables : `MPI_EXERCICES_BANK`, `VSCODE_EXECUTABLE`, `TINYMIST_PATH`. Distribution locale, licence publique à choisir.
+
+## Copies corrigées
+
+Le dépôt `corrections` est découvert grâce à `scripts/copies.py`, `lib/copie.typ`
+et `templates/copie.typ`. Les copies sont dans **Feuilles**, sous le type **Copie**.
+Les aperçus Tinymist chargent le fichier voisin `notes.moyennes.json` ; les exports
+actualisent notes et statistiques avec le Makefile du dépôt. Installer le package
+`@local/mpi-exercices:0.1.0` avant de compiler.
+
+La version 0.7 utilise l'identifiant `qfortier.vscode-mpi-exercices` et les réglages
+`mpiExercices.*`. Désinstaller l'ancienne extension `qfortier.vscode-exercices-mpi`
+puis installer le nouveau VSIX. Reporter les réglages personnalisés vers ce préfixe.
+
+`MPI_CORRECTIONS_TEST=1 npm run test:integration` teste la découverte, le modèle,
+les notes et les exports sur des copies fictives, sans ouvrir de PDF.

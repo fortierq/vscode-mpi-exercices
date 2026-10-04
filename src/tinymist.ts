@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { createMessageConnection, StreamMessageReader, StreamMessageWriter, MessageConnection } from 'vscode-jsonrpc/node';
@@ -21,10 +22,14 @@ export async function start(bank: Bank, source: string, variant: Variant, option
   const binary = vscode.workspace.getConfiguration('tinymist', bank.scope).get<string | null>('serverPath') || path.join(extension.extensionPath, 'out', process.platform === 'win32' ? 'tinymist.exe' : 'tinymist');
   if (!existsSync(binary)) throw new Error('Moteur Tinymist introuvable. Vérifiez son installation ou tinymist.serverPath.');
   const id = `exercices-typst-${randomUUID()}`;
-  const theme = vscode.workspace.getConfiguration('exercicesMpi', bank.scope).get<string>('previewTheme', 'auto');
+  const theme = vscode.workspace.getConfiguration('mpiExercices', bank.scope).get<string>('previewTheme', 'auto');
   const dark = options.dark ?? (theme === 'dark' || (theme === 'auto' && [vscode.ColorThemeKind.Dark, vscode.ColorThemeKind.HighContrast].includes(vscode.window.activeColorTheme.kind)));
   const document = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(bank.root, source)));
-  const args = previewArguments(bank.root, source, variant, identify(document.getText(), source)?.direct);
+  const info = identify(document.getText(), source);
+  const args = previewArguments(bank.root, source, variant, info?.direct);
+  // Les aperçus des copies utilisent les mêmes statistiques que les exports.
+  const moyennes = path.join(path.dirname(document.uri.fsPath), 'notes.moyennes.json');
+  if (info?.type === 'copie' && existsSync(moyennes)) args.splice(args.length - 1, 0, '--input', `moyennes=${await readFile(moyennes, 'utf8')}`);
   const settings = { rootPath: bank.root, typstExtraArgs: args.slice(0, -1), exportPdf: 'never',
     preview: { refresh: 'onType', invertColors: JSON.stringify({ rest: dark ? 'always' : 'never', image: 'never' }) }, customizedShowDocument: true };
   const output = vscode.window.createOutputChannel(`Exercices Typst — ${path.basename(source)} (${variant})`);

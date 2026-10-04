@@ -14,7 +14,7 @@ export class Runner implements vscode.Disposable {
   private disposed = false;
   private errorKeys = new Set<string>();
   readonly output = vscode.window.createOutputChannel('Exercices Typst');
-  readonly diagnostics = vscode.languages.createDiagnosticCollection('exercices-mpi');
+  readonly diagnostics = vscode.languages.createDiagnosticCollection('mpi-exercices');
 
   run(bank: Bank, targets: string[]): Promise<void> {
     const previous = this.queues.get(bank.root) ?? Promise.resolve();
@@ -30,7 +30,7 @@ export class Runner implements vscode.Disposable {
   }
 
   private command(bank: Bank, targets: string[], program?: string) {
-    const config = vscode.workspace.getConfiguration('exercicesMpi', bank.scope);
+    const config = vscode.workspace.getConfiguration('mpiExercices', bank.scope);
     let nix = config.get<string>('nixPath', 'nix');
     if (nix === 'nix') {
       // VS Code opened from the Dock may not inherit the Nix PATH.

@@ -33,7 +33,7 @@ export class Previews implements vscode.Disposable {
       clearTimeout(this.timer);
       this.timer = setTimeout(() => { void this.sync(event.textEditor).catch(this.report); }, 120);
     }), vscode.window.onDidChangeActiveColorTheme(() => this.restart()),
-    vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('exercicesMpi.previewTheme')) this.restart(); }),
+    vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('mpiExercices.previewTheme')) this.restart(); }),
     vscode.workspace.onDidSaveTextDocument(doc => { for (const preview of this.entries.values()) if (!preview.native && doc.uri.fsPath.startsWith(preview.bank.root + path.sep)) void preview.restart().catch(this.report); }));
   }
   private report = (error: unknown): void => {
@@ -56,7 +56,7 @@ export class Previews implements vscode.Disposable {
     const key = `${bank.root}/${source}`;
     const existing = this.entries.get(key);
     if (existing) { existing.panel.reveal(undefined, true); await existing.select(variant); return existing; }
-    const panel = vscode.window.createWebviewPanel('exercicesMpi.pdf', pdfFilename(source, variant), { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, {
+    const panel = vscode.window.createWebviewPanel('mpiExercices.pdf', pdfFilename(source, variant), { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, {
       enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, 'media'), vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'pdfjs')]
     });
     panel.iconPath = vscode.Uri.joinPath(this.context.extensionUri, 'media', 'pdf.svg');
@@ -70,7 +70,7 @@ export class Previews implements vscode.Disposable {
     let queue = Promise.resolve();
     const enqueue = (action: () => Promise<void>) => { const next = queue.catch(() => undefined).then(action); queue = next; return next; };
     const isDark = () => {
-      const theme = vscode.workspace.getConfiguration('exercicesMpi', bank.scope).get<string>('previewTheme', 'auto');
+      const theme = vscode.workspace.getConfiguration('mpiExercices', bank.scope).get<string>('previewTheme', 'auto');
       return preview.dark ?? (theme === 'dark' || (theme === 'auto' && [vscode.ColorThemeKind.Dark, vscode.ColorThemeKind.HighContrast].includes(vscode.window.activeColorTheme.kind)));
     };
     const describe = async () => {
