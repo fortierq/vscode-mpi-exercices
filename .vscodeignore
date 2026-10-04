@@ -7,6 +7,9 @@ test/**
 scripts/**
 releases/**
 tsconfig.json
+flake.nix
+flake.lock
+.envrc
 package-lock.json
 dist/*.test.js
 dist/integration.js
