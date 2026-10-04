@@ -40,6 +40,6 @@ La sauvegarde exporte le PDF courant ; **Exporter les PDF énoncé et corrigé**
 
 `npm ci` · `npm test` · `npm run test:integration` · `npm run package`
 
-`make release` exécute les tests puis génère le VSIX versionné dans `releases/`.
+`make release` exécute les tests puis génère le VSIX versionné dans `releases/` avec Node 22.13.1. La version peut être surchargée, par exemple `make release NODE_VERSION=22.14.0`.
 
 Tests dans un profil VS Code isolé et sur des documents temporaires ; aucun PDF de la banque inspecté. Variables : `EXERCICES_MPI_BANK`, `VSCODE_EXECUTABLE`, `TINYMIST_PATH`. Distribution locale, licence publique à choisir.
