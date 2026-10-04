@@ -15,11 +15,13 @@ import { sourceMetadata } from './sheet-model';
 import { newFolder, moveSource, deleteSource, Location } from './files';
 import { Drag } from './drag';
 import { Refresh } from './refresh';
-import { searchPicker } from './search';
+import { RecentSources, searchPicker } from './search';
 import { errorStatus } from './errors';
 
 export async function activate(context: vscode.ExtensionContext) {
   const runner = new Runner();
+  const recentSources = new RecentSources(context.workspaceState);
+  context.subscriptions.push(recentSources);
   const library = new Browser('exercices', context.workspaceState);
   const sheets = new Browser('documents', context.workspaceState);
   const browsers = [library, sheets];
@@ -201,7 +203,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const suffix = ['', 'Sheets'][index];
   register('search' + suffix, async () => {
     await discovery;
-    const result = await searchPicker(browser);
+    const result = await searchPicker(browser, recentSources);
     if (!result) return;
     const source = await checkSource(result);
     if (source.documentType) sheetEditor.selected = source;

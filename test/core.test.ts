@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { searchPriority } from '../src/search-order';
 import assert from 'node:assert/strict';
 import { identify } from '../src/documents';
 import { Exercise, executionCommand, matches, parseCatalogue, parseDiagnostics, pdfTarget, pdfFilename, previewArguments } from '../src/core';
@@ -231,4 +232,15 @@ test('documents : type déclaré, indépendant du dossier, anciens appels compat
   for (const source of ['// #show: feuille.with()', '/* #let ex = exercice() */', '`#let ex = exercice()`', '#let texte = "#show: feuille.with()"']) assert.equal(identify(source), undefined);
   const feuille = editableSheet.replace('feuille.with(', 'feuille.with(type: "devoir",');
   assert.equal(sheetList(editSheet(feuille, 'libre.typ', { index: 0 }), 'libre.typ').entries.length, 1);
+});
+
+
+test('recherche : fichiers ouverts, historique récent, puis titres', () => {
+  const opened = new Set(['/bank/a.typ', '/bank/z.typ']);
+  const recent = ['/bank/b.typ', '/bank/z.typ', '/bank/c.typ'];
+  const files = ['/bank/d.typ', '/bank/c.typ', '/bank/b.typ', '/bank/a.typ', '/bank/z.typ', '/other/z.typ'];
+  files.sort((a, b) => searchPriority(a, opened, recent) - searchPriority(b, opened, recent) || a.localeCompare(b));
+  assert.deepEqual(files, ['/bank/z.typ', '/bank/a.typ', '/bank/b.typ', '/bank/c.typ', '/bank/d.typ', '/other/z.typ']);
+  assert.equal(searchPriority('/bank/a.typ', opened, []), 0);
+  assert.equal(searchPriority('/bank/b.typ', opened, []), 1);
 });
