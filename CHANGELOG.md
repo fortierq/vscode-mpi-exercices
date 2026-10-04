@@ -1,5 +1,37 @@
 # Journal des versions
 
+## 0.6.1
+
+- Section Feuilles et API unique `feuille.with(...)` ; modèles et sources migrés.
+- Dossiers affichés uniquement s'ils contiennent des fichiers visibles dans la vue, sous-dossiers et filtres compris.
+
+## 0.6.0
+
+- Trois sections : Fichier, Exercices et Documents ; recherche commune et filtre de type pour TD, devoirs, concours et types personnalisés.
+- API commune `fiche.with(type: "…", ...)`, modèles découverts automatiquement, classement libre et compilation indépendante des dossiers.
+- Points attachés aux questions ; compatibilité des anciens appels et protection des anciens barèmes globaux.
+
+## 0.5.16
+
+- Recherche réservée à la sélection d'un fichier ; suppression du filtre textuel persistant et de l'option d'application à la vue.
+
+## 0.5.15
+
+- Indication watch retirée du lecteur ; erreurs masquées pendant la saisie (pause de 2 s) ; clic sur l'erreur ouvrant uniquement Problems.
+
+## 0.5.14
+
+- Erreurs de catalogue, compilation et aperçu dans la barre d'état cliquable, sans ouverture automatique du journal ni notification intrusive.
+
+## 0.5.13
+
+- Recherche rapide d'exercices, feuilles et concours : résultats avec métadonnées, ouverture d'un fichier ou application du filtre à la vue.
+
+## 0.5.12
+
+- Catalogue reconstruit toutes les 5 secondes seulement après modification de sources, sans exécutions concurrentes.
+- Erreurs de compilation détaillées et bandeau d'erreurs Tinymist dans l'aperçu, effacé après correction.
+
 ## 0.5.11
 
 - F5 pour l'énoncé, F6 pour le corrigé ; Maj exporte la variante correspondante.
@@ -64,7 +96,7 @@
 
 ## 0.3.0 — Exercices Typst
 
-- Quatre sections : Fichier actuel, Exercices, Feuilles, Concours ; arborescences repliables ou listes.
+- Quatre sections : Fichier, Exercices, Feuilles, Concours ; arborescences repliables ou listes.
 - Métadonnées accessibles par un lien ; parties du plan repliées par défaut.
 - Cases à cocher dans la recherche ; création des feuilles dans l'ordre de la sélection affichée sous Feuilles.
 - Aperçu Tinymist à la frappe, navigation précise dans les deux sens, thème sombre et variantes conservées en mémoire.

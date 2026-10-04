@@ -2,6 +2,7 @@ const vscode = acquireVsCodeApi();
 window.addEventListener('error', event => vscode.postMessage({ type: 'clientError', error: event.message }));
 window.addEventListener('unhandledrejection', event => vscode.postMessage({ type: 'clientError', error: String(event.reason) }));
 const status = document.getElementById('status');
+const compileError = document.getElementById('compile-error');
 const frames = new Map();
 let state;
 let epoch = 0;
@@ -42,12 +43,11 @@ window.addEventListener('message', ({ data }) => {
   if (data?.channel !== document.body.dataset.channel) return;
   if (data.type === 'reset') { ++epoch; rendered = undefined; for (const frame of frames.values()) frame.remove(); frames.clear(); }
   if (data.type === 'status') { status.textContent = data.message; status.hidden = false; }
+  if (data.type === 'compileError') { compileError.textContent = data.message; compileError.hidden = !data.message; }
   if (data.type !== 'show') return;
   state = data;
   document.body.classList.toggle('pdf-dark', !data.native && data.dark);
   document.getElementById('jumps').disabled = !data.native;
-  document.querySelector('.watch').textContent = data.native ? '● watch' : '● à l’enregistrement';
-  document.querySelector('.watch').title = data.native ? 'Mise à jour à la frappe' : 'Tinymist absent : PDF actualisé à l’enregistrement';
   if (data.pdf) { status.hidden = true; void pdf(data.pdf).catch(error => { rendered = undefined; status.textContent = String(error); status.hidden = false; vscode.postMessage({ type: 'pdfError', error: String(error) }); }); }
   for (const [variant, url] of Object.entries(data.sessions)) {
     if (!frames.has(variant)) {

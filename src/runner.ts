@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import { existsSync } from 'node:fs';
 import { spawn, ChildProcess } from 'node:child_process';
 import { executionCommand, parseDiagnostics } from './core';
+import { errorStatus } from './errors';
 
 export interface Bank { root: string; name: string; scope: vscode.Uri }
 
@@ -11,12 +12,18 @@ export class Runner implements vscode.Disposable {
   private queues = new Map<string, Promise<unknown>>();
   private children = new Set<ChildProcess>();
   private disposed = false;
+  private errorKeys = new Set<string>();
   readonly output = vscode.window.createOutputChannel('Exercices Typst');
   readonly diagnostics = vscode.languages.createDiagnosticCollection('exercices-mpi');
 
   run(bank: Bank, targets: string[]): Promise<void> {
     const previous = this.queues.get(bank.root) ?? Promise.resolve();
-    const job = previous.catch(() => undefined).then(() => this.execute(bank, targets));
+    const key = `build:${bank.root}:${targets.join('|')}`;
+    this.errorKeys.add(key);
+    const job = previous.catch(() => undefined).then(() => this.execute(bank, targets)).then(() => { errorStatus.clear(key); }, error => {
+      if (!this.disposed) errorStatus.set(key, targets[0] === 'catalogue' ? 'Erreur catalogue' : 'Erreur compilation', error);
+      throw error;
+    });
     this.queues.set(bank.root, job);
     void job.finally(() => { if (this.queues.get(bank.root) === job) this.queues.delete(bank.root); }).catch(() => undefined);
     return job;
@@ -56,7 +63,11 @@ export class Runner implements vscode.Disposable {
           if (this.disposed || token.isCancellationRequested) { reject(new vscode.CancellationError()); return; }
           this.updateDiagnostics(bank, output);
           if (code === 0) resolve();
-          else { this.output.show(true); reject(new Error(`La compilation a échoué (code ${code}). Consultez le journal Exercices Typst et le panneau Problèmes.`)); }
+          else {
+            const diagnostic = parseDiagnostics(output).find(item => !item.warning);
+            const detail = diagnostic ? `${diagnostic.file}:${diagnostic.line + 1} : ${diagnostic.message}` : output.trim().split('\n').slice(-8).join('\n');
+            reject(new Error(`La compilation a échoué (code ${code}).\n${detail}`));
+          }
         });
       });
     });
@@ -81,5 +92,5 @@ export class Runner implements vscode.Disposable {
       else child.kill();
     } catch { /* The process may already have exited. */ }
   }
-  dispose(): void { this.disposed = true; for (const child of this.children) this.stop(child); this.output.dispose(); this.diagnostics.dispose(); }
+  dispose(): void { this.disposed = true; for (const key of this.errorKeys) errorStatus.clear(key); for (const child of this.children) this.stop(child); this.output.dispose(); this.diagnostics.dispose(); }
 }

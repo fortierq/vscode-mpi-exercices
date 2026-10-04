@@ -49,6 +49,15 @@ export function sheetList(text: string, source: string): SheetList {
 
 export function editSheet(text: string, source: string, operation: { index: number; direction?: number } | { add: string }): string {
   const list = sheetList(text, source);
+  // A flat marking scheme follows question order: never silently attach points to different questions.
+  const code = mask(text);
+  const show = /#show\s*:\s*feuille\.with\s*\(/.exec(code)!;
+  let depth = 1; let end = show.index + show[0].length;
+  while (end < code.length && depth) { if (code[end] === '(') depth++; if (code[end] === ')') depth--; end++; }
+  const fields = code.slice(show.index + show[0].length, end - 1);
+  if (/\bbareme\s*:/.test(fields) && !/\bbareme\s*:\s*none\s*,/.test(fields)) {
+    throw new Error('Barème personnalisé : modifiez ensemble la composition et le barème dans la source, ou passez bareme à none avant de réorganiser les exercices.');
+  }
   let prefix = '';
   let removed: string | undefined;
   if ('add' in operation) {
@@ -81,7 +90,23 @@ export function editSheet(text: string, source: string, operation: { index: numb
 
 // Search indexes literal metadata only; compilation remains the catalogue's job.
 export function sourceMetadata(text: string, source: string): Exercise {
-  const clean = mask(text, false);
+  let clean = mask(text, false);
+  {
+    const code = mask(text);
+    const show = /#show\s*:\s*feuille\.with\s*\(/.exec(code);
+    if (show) {
+      const start = show.index + show[0].length;
+      let end = start; let depth = 1;
+      while (end < code.length && depth) {
+        if (code[end] === '(') depth++;
+        if (code[end] === ')') depth--;
+        end++;
+      }
+      const fields = depth ? '' : clean.slice(start, end - 1);
+      // A monolithic subject can use titre: ex.meta.titre in its shared renderer.
+      if (/\btitre\s*:\s*"/.test(fields)) clean = fields;
+    }
+  }
   const string = (key: string) => new RegExp(`\\b${key}\\s*:\\s*"([^"\\n]*)"`).exec(clean)?.[1];
   const values = (key: string) => [...(new RegExp(`\\b${key}\\s*:\\s*\\(([^)]*)\\)`).exec(clean)?.[1] ?? '').matchAll(/"([^"\n]*)"/g)].map(match => match[1]);
   const contest = /\bconcours\s*:\s*\(([^)]*)\)/.exec(clean)?.[1];

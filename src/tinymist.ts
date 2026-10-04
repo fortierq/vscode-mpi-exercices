@@ -7,12 +7,14 @@ import { createMessageConnection, StreamMessageReader, StreamMessageWriter, Mess
 import { Variant, previewArguments } from './core';
 import { Bank } from './runner';
 import { bridge } from './preview-bridge';
+import { errorStatus } from './errors';
+import { identify } from './documents';
 
 export interface Session { id: string; url: string; port: number; connection: MessageConnection; dispose(): void }
 
 // Tinymist's shared LSP ignores per-preview root/inputs. An isolated LSP
 // context reuses its installed engine without changing the user's settings.
-export async function start(bank: Bank, source: string, variant: Variant, options: { dark?: boolean; canJump?: () => boolean } = {}): Promise<Session> {
+export async function start(bank: Bank, source: string, variant: Variant, options: { dark?: boolean; canJump?: () => boolean; onError?: (message: string) => void } = {}): Promise<Session> {
   if (!vscode.workspace.isTrusted) throw new Error('Autorisez cet espace de travail pour ouvrir un aperçu.');
   const extension = vscode.extensions.getExtension('myriad-dreamin.tinymist');
   if (!extension) throw new Error('Installez Tinymist pour afficher les aperçus.');
@@ -21,7 +23,8 @@ export async function start(bank: Bank, source: string, variant: Variant, option
   const id = `exercices-typst-${randomUUID()}`;
   const theme = vscode.workspace.getConfiguration('exercicesMpi', bank.scope).get<string>('previewTheme', 'auto');
   const dark = options.dark ?? (theme === 'dark' || (theme === 'auto' && [vscode.ColorThemeKind.Dark, vscode.ColorThemeKind.HighContrast].includes(vscode.window.activeColorTheme.kind)));
-  const args = previewArguments(bank.root, source, variant);
+  const document = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(bank.root, source)));
+  const args = previewArguments(bank.root, source, variant, identify(document.getText(), source)?.direct);
   const settings = { rootPath: bank.root, typstExtraArgs: args.slice(0, -1), exportPdf: 'never',
     preview: { refresh: 'onType', invertColors: JSON.stringify({ rest: dark ? 'always' : 'never', image: 'never' }) }, customizedShowDocument: true };
   const output = vscode.window.createOutputChannel(`Exercices Typst — ${path.basename(source)} (${variant})`);
@@ -29,20 +32,35 @@ export async function start(bank: Bank, source: string, variant: Variant, option
   const connection = createMessageConnection(new StreamMessageReader(child.stdout), new StreamMessageWriter(child.stdin));
   const subscriptions: vscode.Disposable[] = [];
   const diagnostics = vscode.languages.createDiagnosticCollection(id);
+  const errors = new Map<string, string[]>();
+  let quietUntil = 0;
+  let errorTimer: ReturnType<typeof setTimeout> | undefined;
+  const publishErrors = () => {
+    clearTimeout(errorTimer);
+    if (stopped) return;
+    if (Date.now() < quietUntil) { errorTimer = setTimeout(publishErrors, quietUntil - Date.now()); return; }
+    const message = [...errors.values()].flat().join('\n');
+    if (message) errorStatus.set(id, 'Erreur Typst', message);
+    else errorStatus.clear(id);
+    options.onError?.(message);
+  };
   let stopped = false;
   let page: Awaited<ReturnType<typeof bridge>> | undefined;
   const dispose = () => {
     if (stopped) return; stopped = true;
+    clearTimeout(errorTimer);
     for (const sub of subscriptions) sub.dispose();
-    page?.dispose(); connection.dispose(); child.kill(); diagnostics.dispose(); output.dispose();
+    errorStatus.clear(id); page?.dispose(); connection.dispose(); child.kill(); diagnostics.dispose(); output.dispose();
   };
   child.stderr.on('data', data => output.append(data.toString()));
   child.on('error', error => { output.appendLine(error.message); connection.dispose(); });
-  child.once('exit', () => { if (!stopped) { connection.dispose(); void vscode.window.showErrorMessage('Le moteur d’aperçu s’est arrêté. Utilisez ↻ pour le redémarrer.'); } });
+  child.once('exit', () => { if (!stopped) { connection.dispose(); errorStatus.set(id, 'Erreur aperçu Typst', 'Le moteur d’aperçu s’est arrêté. Utilisez ↻ pour le redémarrer.'); } });
   connection.onRequest('workspace/configuration', (request: { items: unknown[] }) => request.items.map(() => settings));
   connection.onRequest('client/registerCapability', () => null);
   connection.onRequest('client/unregisterCapability', () => null);
   connection.onNotification('textDocument/publishDiagnostics', (params: { uri: string; diagnostics: { range: { start: { line: number; character: number }; end: { line: number; character: number } }; message: string; severity?: number }[] }) => {
+    errors.set(params.uri, params.diagnostics.filter(d => (d.severity ?? 1) === 1).map(d => `${path.relative(bank.root, vscode.Uri.parse(params.uri).fsPath)}:${d.range.start.line + 1} : ${d.message}`));
+    publishErrors();
     diagnostics.set(vscode.Uri.parse(params.uri), params.diagnostics.map(d => new vscode.Diagnostic(new vscode.Range(d.range.start.line, d.range.start.character, d.range.end.line, d.range.end.character), d.message, (d.severity ?? 1) - 1)));
   });
   const showSource = async (jump: { filepath: string; start: [number, number] | null; end: [number, number] | null }) => {
@@ -78,7 +96,12 @@ export async function start(bank: Bank, source: string, variant: Variant, option
     };
     for (const document of vscode.workspace.textDocuments) open(document);
     subscriptions.push(vscode.workspace.onDidOpenTextDocument(open),
-      vscode.workspace.onDidChangeTextDocument(event => { if (belongs(event.document)) { open(event.document); notify('textDocument/didChange', { textDocument: { uri: event.document.uri.toString(), version: event.document.version }, contentChanges: [{ text: event.document.getText() }] }); } }),
+      vscode.workspace.onDidChangeTextDocument(event => { if (belongs(event.document) && event.contentChanges.length) {
+        quietUntil = Date.now() + 2000;
+        errorStatus.clear(id); options.onError?.('');
+        publishErrors();
+        open(event.document); notify('textDocument/didChange', { textDocument: { uri: event.document.uri.toString(), version: event.document.version }, contentChanges: [{ text: event.document.getText() }] });
+      } }),
       vscode.workspace.onDidCloseTextDocument(doc => { if (opened.delete(doc.uri.toString())) notify('textDocument/didClose', { textDocument: { uri: doc.uri.toString() } }); }));
     const result = await connection.sendRequest<{ staticServerPort: number }>('workspace/executeCommand', {
       command: 'tinymist.doStartPreview', arguments: [['--task-id', id, '--data-plane-host', '127.0.0.1:0', '--invert-colors', settings.preview.invertColors, args.at(-1)!]]

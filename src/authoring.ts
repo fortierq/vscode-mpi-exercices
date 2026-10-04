@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { readFile, realpath } from 'node:fs/promises';
 import { Bank } from './runner';
 import { Exercise, normalize, safeSource } from './core';
+import { identify, sourceExclusions, typeLabel } from './documents';
 import { exerciseFromTemplate, sheetFromTemplate, contestFromTemplate, creationPath, slug, vocabulary } from './typst';
 
 export interface BankEntry { bank: Bank; ex: Exercise }
@@ -39,7 +40,7 @@ async function create(bank: Bank, relative: string, content: string): Promise<vs
   }
   await vscode.workspace.fs.createDirectory(directory);
   const actual = await realpath(directory.fsPath);
-  if (!actual.startsWith(bank.root + path.sep)) throw new Error('Le dossier de destination doit rester dans la banque.');
+  if (actual !== bank.root && !actual.startsWith(bank.root + path.sep)) throw new Error('Le dossier de destination doit rester dans la banque.');
   const edit = new vscode.WorkspaceEdit();
   edit.createFile(uri, { overwrite: false, ignoreIfExists: false });
   edit.insert(uri, new vscode.Position(0, 0), content);
@@ -65,31 +66,41 @@ export async function newExercise(bank: Bank, entries: BankEntry[], targetDirect
   const difficultyChoice = await vscode.window.showQuickPick(['1', '2', '3', '4', '5'], { title: 'Difficulté (1 : application directe ; 5 : très difficile)' });
   if (!difficultyChoice) canceled();
   const minutesText = await input('Durée estimée en minutes (0 : non estimée)', '20', value => /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) ? undefined : 'Entrez un nombre entier positif ou nul.');
-  const directories = [...new Set(entries.filter(entry => entry.bank.root === bank.root).map(entry => entry.ex.fichier.split('/')[1]))];
-  const preferred = entries.find(entry => entry.bank.root === bank.root && entry.ex.chapitres.includes(chapters[0]))?.ex.fichier.split('/')[1] ?? chapters[0];
-  const directory = targetDirectory?.replace(/^exercices\/?/, '') ?? await vscode.window.showQuickPick([...new Set([preferred, ...directories])], { title: 'Dossier de classement' });
-  if (directory === undefined) canceled();
+  const directory = targetDirectory ?? await chooseDirectory();
   const identifier = await input('Identifiant unique (nom du fichier)', slug(title), value => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? undefined : 'Utilisez des lettres minuscules, chiffres et tirets.');
-  const existing = await vscode.workspace.findFiles(new vscode.RelativePattern(vscode.Uri.file(bank.root), 'exercices/**/*.typ'));
-  if (existing.some(uri => path.basename(uri.fsPath, '.typ') === identifier)) throw new Error(`L'identifiant ${identifier} existe déjà dans la banque.`);
-  const template = await readFile(path.join(bank.root, 'templates/exercice.typ'), 'utf8');
-  return create(bank, `exercices/${directory ? directory + '/' : ''}${identifier}.typ`, exerciseFromTemplate(template, { title, chapters, algorithms, structures, languages, levels, difficulty: Number(difficultyChoice), minutes: Number(minutesText) || null }));
-}
-
-export async function newSheet(bank: Bank, directory = 'feuilles'): Promise<vscode.Uri> {
-  const title = await input('Titre de la feuille', 'Travaux dirigés');
-  const identifier = await input('Nom du fichier de la feuille', slug(title), value => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? undefined : 'Utilisez des lettres minuscules, chiffres et tirets.');
-  const template = await readFile(path.join(bank.root, 'templates/feuille.typ'), 'utf8');
-  return create(bank, creationPath('feuilles', directory, identifier), sheetFromTemplate(template, title, []));
-}
-
-export async function newContest(bank: Bank, directory = 'concours'): Promise<vscode.Uri> {
-  if (directory === 'concours') {
-    const year = await input('Année du sujet (quatre chiffres)', '', value => /^\d{4}$/.test(value) && +value > 0 ? undefined : 'Entrez une année sur quatre chiffres.');
-    directory += '/' + year.slice(-2);
+  const existing = await vscode.workspace.findFiles(new vscode.RelativePattern(vscode.Uri.file(bank.root), '**/*.typ'), sourceExclusions);
+  for (const uri of existing.filter(uri => path.basename(uri.fsPath, '.typ') === identifier)) {
+    if (identify((await vscode.workspace.openTextDocument(uri)).getText(), path.relative(bank.root, uri.fsPath))?.kind === 'exercice') throw new Error(`L'identifiant ${identifier} existe déjà dans la banque.`);
   }
-  const title = await input('Titre du sujet de concours');
-  const identifier = await input('Nom du fichier du sujet', slug(title), value => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? undefined : 'Utilisez des lettres minuscules, chiffres et tirets.');
-  const template = await readFile(path.join(bank.root, 'templates/sujet-concours.typ'), 'utf8');
-  return create(bank, creationPath('concours', directory, identifier), contestFromTemplate(template, title));
+  const template = await readFile(path.join(bank.root, 'templates/exercice.typ'), 'utf8');
+  return create(bank, creationPath(directory, identifier), exerciseFromTemplate(template, { title, chapters, algorithms, structures, languages, levels, difficulty: Number(difficultyChoice), minutes: Number(minutesText) || null }));
+}
+
+async function chooseDirectory(): Promise<string> {
+  return (await vscode.window.showInputBox({ title: 'Dossier dans la banque (vide : racine)', value: '', validateInput: value => {
+    try { creationPath(value, 'test'); return undefined; } catch { return 'Chemin relatif, sans espaces ni ..'; }
+  } })) ?? canceled();
+}
+
+export async function documentTemplates(bank: Bank): Promise<{ label: string; description: string; type: string; text: string }[]> {
+  const files = await vscode.workspace.findFiles(new vscode.RelativePattern(vscode.Uri.file(bank.root), 'templates/**/*.typ'));
+  const templates = [];
+  for (const uri of files) {
+    const text = await readFile(uri.fsPath, 'utf8');
+    const info = identify(text);
+    if (info?.kind === 'document' && info.type !== 'exercice') templates.push({ label: typeLabel(info.type!), description: path.relative(bank.root, uri.fsPath), type: info.type!, text });
+  }
+  return templates.sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+}
+
+export async function newSheet(bank: Bank, directory?: string): Promise<vscode.Uri> {
+  const templates = await documentTemplates(bank);
+  if (!templates.length) throw new Error('Ajoutez un modèle utilisant feuille.with(type: "…", ...) dans templates/.');
+  const template = await vscode.window.showQuickPick(templates, { title: 'Type de feuille / modèle' }) ?? canceled();
+  const title = await input('Titre de la feuille', template.type === 'td' ? 'Travaux dirigés' : template.label);
+  directory ??= await chooseDirectory();
+  const identifier = await input('Nom du fichier de la feuille', slug(title), value => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? undefined : 'Utilisez des lettres minuscules, chiffres et tirets.');
+  const composition = /^#import\s+"\/templates\/exercice.typ"/m.test(template.text);
+  const content = composition ? sheetFromTemplate(template.text, title, []) : contestFromTemplate(template.text, title);
+  return create(bank, creationPath(directory, identifier), content);
 }

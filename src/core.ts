@@ -9,12 +9,12 @@ export interface Exercise {
 export type Variant = 'enonce' | 'corrige';
 export const facets = ['chapitres', 'algorithmes', 'structures', 'langages', 'niveaux', 'concours'] as const;
 export type Facet = typeof facets[number];
-export type Filters = Partial<Record<Facet, string>> & { difficulteMax?: number };
+export type Filters = Partial<Record<Facet, string>> & { difficulteMax?: number; type?: string };
 export const labels: Record<Facet, string> = { chapitres: 'Chapitre', algorithmes: 'Algorithme', structures: 'Structure', langages: 'Langage', niveaux: 'Niveau', concours: 'Concours' };
 
 export function safeSource(file: string): string {
   // This path is also passed to Make: exclude Make variable/recipe syntax.
-  if (!/^(exercices|feuilles|concours)\/(?:[\p{L}\p{N}_-]+\/)*[\p{L}\p{N}_-]+\.typ$/u.test(file)) {
+  if (!/^(?:[\p{L}\p{N}_-]+\/)*[\p{L}\p{N}_-]+\.typ$/u.test(file)) {
     throw new Error(`Chemin de source non pris en charge : ${file}`);
   }
   return file;
@@ -28,16 +28,14 @@ export function pdfFilename(source: string, variant: Variant): string {
 export function pdfTarget(source: string, variant: Variant): string {
   safeSource(source);
   const stem = source.slice(0, -4);
-  return source.startsWith('feuilles/')
-    ? `build/${stem}${variant === 'corrige' ? '-corrige' : ''}.pdf`
-    : `build/${stem}/${variant}.pdf`;
+  return `build/${stem}/${variant}.pdf`;
 }
 
-export function previewArguments(root: string, source: string, variant: Variant): string[] {
+export function previewArguments(root: string, source: string, variant: Variant, direct = false): string[] {
   safeSource(source);
   const args = ['--root', root, '--ignore-system-fonts', '--input', `corrige=${variant === 'corrige'}`];
-  if (!source.startsWith('feuilles/')) args.push('--input', `exercice=/${source}`);
-  args.push(`${root}/${source.startsWith('feuilles/') ? source : 'templates/fiche.typ'}`);
+  if (!direct) args.push('--input', `exercice=/${source}`);
+  args.push(`${root}/${direct ? source : 'templates/fiche.typ'}`);
   return args;
 }
 

@@ -2,8 +2,8 @@
   "name": "vscode-exercices-mpi",
   "displayName": "Exercices Typst",
   "icon": "media/icon-sidebar.png",
-  "description": "Parcourir une banque d'exercices Typst, composer des feuilles et prévisualiser les énoncés et corrigés.",
-  "version": "0.5.11",
+  "description": "Exercices Typst.",
+  "version": "0.6.1",
   "publisher": "qfortier",
   "license": "UNLICENSED",
   "engines": {
@@ -62,19 +62,13 @@
       },
       {
         "command": "exercicesMpi.newFolderLibrary",
-        "title": "Ajouter un dossier d'exercices",
+        "title": "Ajouter un dossier",
         "category": "Exercices Typst",
         "icon": "$(new-folder)"
       },
       {
         "command": "exercicesMpi.newFolderSheets",
-        "title": "Ajouter un dossier de feuilles",
-        "category": "Exercices Typst",
-        "icon": "$(new-folder)"
-      },
-      {
-        "command": "exercicesMpi.newFolderContests",
-        "title": "Ajouter un dossier de concours",
+        "title": "Ajouter un dossier",
         "category": "Exercices Typst",
         "icon": "$(new-folder)"
       },
@@ -97,24 +91,6 @@
         "icon": "$(close)"
       },
       {
-        "command": "exercicesMpi.searchContests",
-        "title": "Rechercher des concours",
-        "category": "Exercices Typst",
-        "icon": "$(search)"
-      },
-      {
-        "command": "exercicesMpi.filtersContests",
-        "title": "Filtrer les concours",
-        "category": "Exercices Typst",
-        "icon": "$(filter)"
-      },
-      {
-        "command": "exercicesMpi.resetContests",
-        "title": "Annuler la recherche et les filtres",
-        "category": "Exercices Typst",
-        "icon": "$(close)"
-      },
-      {
         "command": "exercicesMpi.newExercise",
         "title": "Ajouter un exercice",
         "category": "Exercices Typst",
@@ -122,7 +98,7 @@
       },
       {
         "command": "exercicesMpi.newSheet",
-        "title": "Créer une nouvelle feuille",
+        "title": "Créer une feuille",
         "category": "Exercices Typst",
         "icon": "$(file-add)"
       },
@@ -134,11 +110,6 @@
       {
         "command": "exercicesMpi.toggleSheets",
         "title": "Basculer dossiers / liste des feuilles",
-        "category": "Exercices Typst"
-      },
-      {
-        "command": "exercicesMpi.toggleContests",
-        "title": "Basculer dossiers / liste des concours",
         "category": "Exercices Typst"
       },
       {
@@ -191,7 +162,7 @@
       },
       {
         "command": "exercicesMpi.compileBoth",
-        "title": "Exporter les PDF énoncé et corrigé (make c)",
+        "title": "Compiler énoncé et corrigé (make c)",
         "category": "Exercices Typst"
       },
       {
@@ -204,12 +175,6 @@
         "title": "Afficher le journal de compilation",
         "category": "Exercices Typst",
         "icon": "$(output)"
-      },
-      {
-        "command": "exercicesMpi.newContest",
-        "title": "Créer un sujet de concours",
-        "category": "Exercices Typst",
-        "icon": "$(new-file)"
       },
       {
         "command": "exercicesMpi.openPanel",
@@ -228,11 +193,6 @@
       },
       {
         "command": "exercicesMpi.collapsesheets",
-        "title": "Tout replier",
-        "category": "Exercices Typst"
-      },
-      {
-        "command": "exercicesMpi.collapsecontests",
         "title": "Tout replier",
         "category": "Exercices Typst"
       },
@@ -260,7 +220,7 @@
       "exercicesMpi": [
         {
           "id": "exercicesMpi.current",
-          "name": "Fichier actuel"
+          "name": "Fichier"
         },
         {
           "id": "exercicesMpi.library",
@@ -269,10 +229,6 @@
         {
           "id": "exercicesMpi.sheets",
           "name": "Feuilles"
-        },
-        {
-          "id": "exercicesMpi.contests",
-          "name": "Concours"
         }
       ]
     },
@@ -299,11 +255,6 @@
           "group": "navigation@5"
         },
         {
-          "command": "exercicesMpi.newFolderContests",
-          "when": "view == exercicesMpi.contests",
-          "group": "navigation@5"
-        },
-        {
           "command": "exercicesMpi.searchSheets",
           "when": "view == exercicesMpi.sheets",
           "group": "navigation@1"
@@ -316,21 +267,6 @@
         {
           "command": "exercicesMpi.resetSheets",
           "when": "view == exercicesMpi.sheets && exercicesMpi.searchActive.sheets",
-          "group": "navigation@3"
-        },
-        {
-          "command": "exercicesMpi.searchContests",
-          "when": "view == exercicesMpi.contests",
-          "group": "navigation@1"
-        },
-        {
-          "command": "exercicesMpi.filtersContests",
-          "when": "view == exercicesMpi.contests",
-          "group": "navigation@2"
-        },
-        {
-          "command": "exercicesMpi.resetContests",
-          "when": "view == exercicesMpi.contests && exercicesMpi.searchActive.contests",
           "group": "navigation@3"
         },
         {
@@ -377,16 +313,6 @@
           "group": "display@2"
         },
         {
-          "command": "exercicesMpi.toggleContests",
-          "when": "view == exercicesMpi.contests",
-          "group": "display@2"
-        },
-        {
-          "command": "exercicesMpi.newContest",
-          "when": "view == exercicesMpi.contests",
-          "group": "navigation@4"
-        },
-        {
           "command": "exercicesMpi.collapsecurrent",
           "when": "view == exercicesMpi.current",
           "group": "display@1"
@@ -399,11 +325,6 @@
         {
           "command": "exercicesMpi.collapsesheets",
           "when": "view == exercicesMpi.sheets",
-          "group": "display@1"
-        },
-        {
-          "command": "exercicesMpi.collapsecontests",
-          "when": "view == exercicesMpi.contests",
           "group": "display@1"
         }
       ],
@@ -469,11 +390,6 @@
           "group": "files@2"
         },
         {
-          "command": "exercicesMpi.newFolderContests",
-          "when": "view == exercicesMpi.contests && viewItem == sourceFolder",
-          "group": "files@2"
-        },
-        {
           "command": "exercicesMpi.enonce",
           "when": "viewItem == exercice || viewItem == typstSource",
           "group": "inline@1"
@@ -486,11 +402,6 @@
         {
           "command": "exercicesMpi.newSheet",
           "when": "view == exercicesMpi.sheets && viewItem == sourceFolder",
-          "group": "files@1"
-        },
-        {
-          "command": "exercicesMpi.newContest",
-          "when": "view == exercicesMpi.contests && viewItem == sourceFolder",
           "group": "files@1"
         }
       ],
@@ -548,19 +459,7 @@
           "when": "false"
         },
         {
-          "command": "exercicesMpi.newFolderContests",
-          "when": "false"
-        },
-        {
           "command": "exercicesMpi.resetSheets",
-          "when": "false"
-        },
-        {
-          "command": "exercicesMpi.filtersContests",
-          "when": "false"
-        },
-        {
-          "command": "exercicesMpi.resetContests",
           "when": "false"
         },
         {
@@ -569,10 +468,6 @@
         },
         {
           "command": "exercicesMpi.toggleSheets",
-          "when": "false"
-        },
-        {
-          "command": "exercicesMpi.toggleContests",
           "when": "false"
         },
         {
@@ -600,10 +495,6 @@
           "when": "false"
         },
         {
-          "command": "exercicesMpi.newContest",
-          "when": "false"
-        },
-        {
           "command": "exercicesMpi.collapsecurrent",
           "when": "false"
         },
@@ -613,10 +504,6 @@
         },
         {
           "command": "exercicesMpi.collapsesheets",
-          "when": "false"
-        },
-        {
-          "command": "exercicesMpi.collapsecontests",
           "when": "false"
         }
       ]
@@ -726,11 +613,6 @@
         "command": "exercicesMpi.resetSheets",
         "key": "escape",
         "when": "focusedView == exercicesMpi.sheets && exercicesMpi.searchActive.sheets && !inputFocus"
-      },
-      {
-        "command": "exercicesMpi.resetContests",
-        "key": "escape",
-        "when": "focusedView == exercicesMpi.contests && exercicesMpi.searchActive.contests && !inputFocus"
       }
     ]
   },
