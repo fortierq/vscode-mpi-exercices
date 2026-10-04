@@ -1,5 +1,9 @@
 # Journal des versions
 
+## 0.6.2
+
+- Détection de la banque corrigée après le renommage de la bibliothèque en `lib/exercice.typ`.
+
 ## 0.6.1
 
 - Section Feuilles et API unique `feuille.with(...)` ; modèles et sources migrés.

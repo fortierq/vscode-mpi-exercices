@@ -29,6 +29,7 @@ export async function run(): Promise<void> {
   const extension = vscode.extensions.getExtension('qfortier.vscode-exercices-mpi');
   assert.ok(extension, 'Extension chargée');
   const api = await extension.activate();
+  assert.ok(api.getEntries().length > 0, 'Banque détectée avec lib/exercice.typ');
   const manifest = extension.packageJSON.contributes;
   const commands = await vscode.commands.getCommands(true);
   assert.deepEqual(manifest.views.exercicesMpi.map((view: { id: string }) => view.id), ['exercicesMpi.current', 'exercicesMpi.library', 'exercicesMpi.sheets']);
@@ -52,7 +53,6 @@ export async function run(): Promise<void> {
   assert.ok(nestedSheet, 'Une feuille existante pour tester reveal');
   const revealed = await api.revealSheet(path.relative(process.env.EXERCICES_MPI_BANK!, nestedSheet.fsPath));
   assert.equal(revealed.source, path.relative(process.env.EXERCICES_MPI_BANK!, nestedSheet.fsPath), 'Sélection réelle de la feuille avec TreeView.reveal');
-  assert.ok(api.getEntries().length > 0, 'Banque détectée');
   const results: Exercise[] = api.search('monoides', { concours: 'ENS' });
   assert.ok(results.some(ex => ex.fichier.endsWith('/automates-monoides.typ')));
   const bank = process.env.EXERCICES_MPI_BANK!;

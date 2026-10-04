@@ -98,7 +98,7 @@ export async function activate(context: vscode.ExtensionContext) {
       if (folder.uri.scheme !== 'file') continue;
       const configured = vscode.workspace.getConfiguration('exercicesMpi', folder.uri).get<string>('bankPath', '');
       const candidate = path.resolve(folder.uri.fsPath, configured || '.');
-      if (!['scripts/catalogue.py', 'templates/fiche.typ', 'lib/exercices.typ', 'Makefile'].every(file => existsSync(path.join(candidate, file)))) continue;
+      if (!['scripts/catalogue.py', 'templates/fiche.typ', 'lib/exercice.typ', 'Makefile'].every(file => existsSync(path.join(candidate, file)))) continue;
       const root = await realpath(candidate);
       if (seen.has(root)) continue; seen.add(root);
       const bank: Bank = { root, name: path.basename(root), scope: folder.uri }; banks.push(bank);
