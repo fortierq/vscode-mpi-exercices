@@ -29,9 +29,15 @@ async function pdf(data) {
       const page = await doc.getPage(n);
       const scale = Math.max(0.2, (host.clientWidth - 24) / page.getViewport({ scale: 1 }).width);
       const viewport = page.getViewport({ scale });
+      const pageView = document.createElement('div'); pageView.className = 'page';
       const canvas = document.createElement('canvas'); canvas.width = viewport.width; canvas.height = viewport.height;
+      const textLayer = document.createElement('div'); textLayer.className = 'textLayer';
       if (revision !== epoch) break;
-      host.append(canvas); await page.render({ canvasContext: canvas.getContext('2d'), canvas, viewport, intent: 'print' }).promise;
+      pageView.append(canvas, textLayer); host.append(pageView);
+      await Promise.all([
+        page.render({ canvasContext: canvas.getContext('2d'), canvas, viewport, intent: 'print' }).promise,
+        new pdfjs.TextLayer({ textContentSource: page.streamTextContent(), container: textLayer, viewport }).render()
+      ]);
     }
     if (revision === epoch) vscode.postMessage({ type: 'pdfReady', pages: doc.numPages });
   } finally { await loading.destroy(); worker.destroy(); port.terminate(); URL.revokeObjectURL(url); }
