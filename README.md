@@ -1,6 +1,7 @@
 # Exercices Typst
 
-Installer le VSIX de `releases/`, puis ouvrir une banque `mpi-exercices` ou le dépôt privé `corrections` approuvé. Prérequis : VS Code ≥ 1.100 et Nix ou Make/Typst/Python. Tinymist est facultatif (testé avec 0.15.8).
+Installer le VSIX de `releases/`, puis ouvrir une banque `mpi-exercices`, le dépôt privé `corrections`
+ou un dépôt de documents Typst avec un Makefile et des modèles dans `templates/`. Prérequis : VS Code ≥ 1.100 et Nix ou Make/Typst/Python. Tinymist est facultatif (testé avec 0.15.8).
 
 - **Fichier** : liens métadonnées et barème, questions et exercices cliquables ; parties repliées.
 - **Exercices** : banque réutilisable. **Feuilles** : TD, devoirs, concours et types personnalisés, recherche commune, filtre par type, dossiers repliables ou liste. Aucun classement imposé : le type est déclaré dans `feuille.with(type: "…", ...)`.
@@ -46,9 +47,12 @@ La sauvegarde exporte le PDF courant ; **Exporter les PDF énoncé et corrigé**
 
 Entrer dans l'environnement avec `nix develop`, puis utiliser
 `npm ci` · `npm test` · `npm run test:integration` · `npm run package`.
-`npm run test:integration -- --organisation` vérifie la découverte des sujets
-avec leurs fichiers associés, l'exclusion de `lib/tests/` et les exports PDF
-depuis la banque réorganisée, sans ouvrir les PDF.
+Les tests d'intégration sont séparés dans `test/integration/` : découverte,
+édition, aperçu, corrections, documents et organisation. La commande complète
+exécute toutes les suites et rapporte leurs échecs séparément.
+Pour une suite : `npm run test:integration -- --suite=edition`
+(valeurs : `decouverte`, `edition`, `apercu`, `corrections`, `documents`, `organisation`).
+L'ancien argument `--organisation` reste utilisable.
 `flake.lock` fixe les versions des outils, dont Node 22.
 
 Depuis le terminal habituel, `make check` lance les tests avec Nix et
@@ -56,19 +60,41 @@ Depuis le terminal habituel, `make check` lance les tests avec Nix et
 Avec direnv et nix-direnv installés, `direnv allow` active automatiquement
 l'environnement décrit par `.envrc`.
 
-Tests dans un profil VS Code isolé et sur des documents temporaires ; aucun PDF de la banque inspecté. Variables : `MPI_EXERCICES_BANK`, `VSCODE_EXECUTABLE`, `TINYMIST_PATH`. Distribution locale, licence publique à choisir.
+Tests dans un profil VS Code isolé et sur des documents temporaires ; aucun PDF de la banque inspecté. Variables : `MPI_EXERCICES_BANK`, `MPI_PACKAGE_ROOT`, `MPI_CORRECTIONS_ROOT`,
+`VSCODE_EXECUTABLE`, `TINYMIST_PATH`. Distribution locale, licence publique à choisir.
 
 ## Copies corrigées
 
 Le dépôt `corrections` est découvert grâce à `scripts/copies.py`, `lib/copie.typ`
 et `templates/copie.typ`. Les copies sont dans **Feuilles**, sous le type **Copie**.
-Les aperçus Tinymist chargent le fichier voisin `notes.moyennes.json` ; les exports
-actualisent notes et statistiques avec le Makefile du dépôt. Installer le package
+Les aperçus Tinymist lisent `notes.csv` et `recapitulatif.csv` dans le dossier
+du DS, comme les exports. La création, la modification ou la suppression de ces
+CSV actualise l'aperçu. Les exports actualisent les notes avec le Makefile du dépôt. Installer le package
 `@local/mpi-exercices:0.1.0` avant de compiler.
 
 La version 0.7 utilise l'identifiant `qfortier.vscode-mpi-exercices` et les réglages
 `mpiExercices.*`. Désinstaller l'ancienne extension `qfortier.vscode-exercices-mpi`
 puis installer le nouveau VSIX. Reporter les réglages personnalisés vers ce préfixe.
 
-`MPI_CORRECTIONS_TEST=1 npm run test:integration` teste la découverte, le modèle,
-les notes et les exports sur des copies fictives, sans ouvrir de PDF.
+`npm run test:integration -- --suite=corrections` teste la découverte, le modèle,
+les notes, les exports et le rechargement des CSV sur des copies fictives.
+L'ancienne variable `MPI_CORRECTIONS_TEST=1` sélectionne aussi cette suite.
+
+## Dépôts de cours
+
+Un dépôt peut contenir uniquement des documents : aucun `lib/exercice.typ`,
+`scripts/catalogue.py` ou catalogue JSON n'est nécessaire. Il fournit son propre
+Makefile et des modèles dans `templates/`. La banque d'exercices peut rester dans
+un autre dossier du même espace de travail.
+
+Un modèle et ses documents déclarent leur type dans une fonction de mise en page :
+`#show: cours.with(type: "poly", titre: "Automates", ...)` ou
+`#show: diapositives.with(type: "presentation", titre: "Automates", ...)`.
+Le nom de cette fonction est libre. Les types sont affichés dans **Feuilles**,
+avec leurs modèles, filtres et dossiers. Les contenus partagés sans cette
+déclaration ne sont pas affichés comme documents.
+
+Regrouper par chapitre le contenu partagé, `poly.typ`, `presentation.typ` et les
+figures. Le Makefile du dépôt fournit les cibles
+`build/<chemin-sans-extension>/enonce.pdf` et `corrige.pdf`. Tinymist compile
+directement les sources : chaque dépôt garde sa propre mise en page.

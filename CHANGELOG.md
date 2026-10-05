@@ -1,3 +1,10 @@
+## 0.7.2
+
+- Utiliser les CSV de notes et de récapitulatif dans les aperçus des copies, avec rechargement automatique.
+- Découvrir les dépôts de documents avec leurs propres modèles et fonctions de mise en page, notamment polys et présentations.
+- Accepter les métadonnées facultatives absentes des modèles d'exercices.
+- Séparer les suites d'intégration et retirer les anciennes icônes inutilisées.
+
 ## 0.7.1
 
 - Accepter les traits de soulignement lors de la création de fichiers, notamment `nom_prenom.typ` pour les copies.

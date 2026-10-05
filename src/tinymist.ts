@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { createMessageConnection, StreamMessageReader, StreamMessageWriter, MessageConnection } from 'vscode-jsonrpc/node';
@@ -10,6 +9,7 @@ import { Bank } from './runner';
 import { bridge } from './preview-bridge';
 import { errorStatus } from './errors';
 import { identify } from './documents';
+import { copyInputs } from './copy-inputs';
 
 export interface Session { id: string; url: string; port: number; connection: MessageConnection; dispose(): void }
 
@@ -28,8 +28,7 @@ export async function start(bank: Bank, source: string, variant: Variant, option
   const info = identify(document.getText(), source);
   const args = previewArguments(bank.root, source, variant, info?.direct);
   // Les aperçus des copies utilisent les mêmes statistiques que les exports.
-  const moyennes = path.join(path.dirname(document.uri.fsPath), 'notes.moyennes.json');
-  if (info?.type === 'copie' && existsSync(moyennes)) args.splice(args.length - 1, 0, '--input', `moyennes=${await readFile(moyennes, 'utf8')}`);
+  if (info?.type === 'copie') args.splice(args.length - 1, 0, ...await copyInputs(document.uri.fsPath));
   const settings = { rootPath: bank.root, typstExtraArgs: args.slice(0, -1), exportPdf: 'never',
     preview: { refresh: 'onType', invertColors: JSON.stringify({ rest: dark ? 'always' : 'never', image: 'never' }) }, customizedShowDocument: true };
   const output = vscode.window.createOutputChannel(`Exercices Typst — ${path.basename(source)} (${variant})`);

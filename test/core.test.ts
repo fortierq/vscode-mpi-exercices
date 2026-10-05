@@ -9,6 +9,39 @@ import { sheetList, editSheet, sourceMetadata } from '../src/sheet-model';
 import { bridgeHtml } from '../src/preview-bridge';
 import { creationPath, contestFromTemplate } from '../src/typst';
 import { Refresh } from '../src/refresh';
+import { copyDirectory, copyInputs } from '../src/copy-inputs';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import * as path from 'node:path';
+import { tmpdir } from 'node:os';
+
+test('documents : polys et présentations avec leur propre fonction de mise en page', () => {
+  const poly = '#show: cours.with(type: "poly", titre: "Automates",)';
+  const slides = '#show: diapositives.with(type: "presentation", titre: "Résumé",)';
+  assert.deepEqual(identify(poly), { kind: 'document', type: 'poly', direct: true });
+  assert.deepEqual(identify(slides), { kind: 'document', type: 'presentation', direct: true });
+  assert.equal(sourceMetadata(poly, 'chapitres/automates/poly.typ').titre, 'Automates');
+  assert.equal(identify('#show: text.with(font: "Arial")'), undefined);
+  assert.equal(identify('// #show: cours.with(type: "poly")'), undefined);
+  assert.throws(() => sheetList(poly, 'poly.typ'), /Composition/);
+});
+
+test('copies : lire les CSV du DS, gérer le BOM et les fichiers absents', async () => {
+  const temporary = await mkdtemp(path.join(tmpdir(), 'mpi-copy-inputs-'));
+  try {
+    const copies = path.join(temporary, 'copies');
+    await mkdir(copies);
+    const source = path.join(copies, 'exemple.typ');
+    assert.equal(copyDirectory(source), temporary);
+    assert.equal(copyDirectory(path.join(temporary, 'exemple.typ')), temporary);
+    assert.deepEqual(await copyInputs(source), ['--input', 'notes=', '--input', 'recap=']);
+    await writeFile(path.join(temporary, 'notes.csv'), '\uFEFFclasse;nom;prenom\nMPI;Nom;Prénom\n');
+    await writeFile(path.join(temporary, 'recapitulatif.csv'), 'classe;note\nMPI;12,5\n');
+    assert.deepEqual(await copyInputs(source), ['--input', 'notes=classe;nom;prenom\nMPI;Nom;Prénom\n', '--input', 'recap=classe;note\nMPI;12,5\n']);
+    await rm(path.join(temporary, 'notes.csv'));
+    await mkdir(path.join(temporary, 'notes.csv'));
+    await assert.rejects(copyInputs(source), /EISDIR/);
+  } finally { await rm(temporary, { recursive: true, force: true }); }
+});
 
 test('catalogue automatique : inactif sans changements, regroupement, relance et erreurs', async () => {
   let calls = 0; let release!: () => void;
@@ -175,6 +208,10 @@ test('plan, vocabulaire et création à partir des modèles Typst', () => {
   assert.ok(clean.includes('"https://example.org/*texte*/"'));
   assert.ok(clean.includes('`// commentaire de code`'));
   assert.ok(clean.includes('"SQL // titre"'));
+  const minimal = source.replace(/^.*(?:algorithmes|structures|langages|concours):.*\n/gm, '');
+  const enriched = exerciseFromTemplate(minimal, { title: 'Minimal', chapters: ['graphes'], algorithms: [], structures: [], languages: ['OCaml'], levels: ['MPI'], difficulty: 2, minutes: 20 });
+  assert.ok(enriched.includes('langages: ("OCaml",),'));
+  assert.ok(enriched.includes('concours: none,'));
   const sheet = sheetFromTemplate('#import "/templates/exercice.typ": ex\n#show: feuille.with(\n  titre: "TD",\n  exercices: (ex,),\n)\n', 'Feuille', [exercise.fichier, 'exercices/graphes/test.typ']);
   assert.ok(sheet.includes('ex as ex2'));
   assert.ok(sheet.includes('exercices: (ex1, ex2,),'));

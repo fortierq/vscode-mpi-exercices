@@ -93,7 +93,7 @@ export function sourceMetadata(text: string, source: string): Exercise {
   let clean = mask(text, false);
   {
     const code = mask(text);
-    const show = /#show\s*:\s*feuille\.with\s*\(/.exec(code);
+    const show = /#show\s*:\s*[\w-]+\.with\s*\(/.exec(code);
     if (show) {
       const start = show.index + show[0].length;
       let end = start; let depth = 1;

@@ -6,6 +6,7 @@ import { Variant, pdfTarget, pdfFilename } from './core';
 import { Bank, Runner } from './runner';
 import * as tinymist from './tinymist';
 import { errorStatus } from './errors';
+import { copyDirectory } from './copy-inputs';
 
 export interface Preview {
   bank: Bank; source: string; variant: Variant; panel: vscode.WebviewPanel;
@@ -35,6 +36,17 @@ export class Previews implements vscode.Disposable {
     }), vscode.window.onDidChangeActiveColorTheme(() => this.restart()),
     vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('mpiExercices.previewTheme')) this.restart(); }),
     vscode.workspace.onDidSaveTextDocument(doc => { for (const preview of this.entries.values()) if (!preview.native && doc.uri.fsPath.startsWith(preview.bank.root + path.sep)) void preview.restart().catch(this.report); }));
+    const statistics = vscode.workspace.createFileSystemWatcher('**/{notes,recapitulatif}.csv');
+    const updateStatistics = (uri: vscode.Uri) => {
+      for (const preview of this.entries.values()) {
+        if (path.dirname(uri.fsPath) === copyDirectory(path.join(preview.bank.root, preview.source)))
+          void preview.restart().catch(this.report);
+      }
+    };
+    statistics.onDidChange(updateStatistics);
+    statistics.onDidCreate(updateStatistics);
+    statistics.onDidDelete(updateStatistics);
+    this.subscriptions.push(statistics);
   }
   private report = (error: unknown): void => {
     if (!errorStatus.has(error)) {

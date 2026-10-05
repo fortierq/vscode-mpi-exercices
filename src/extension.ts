@@ -17,6 +17,7 @@ import { Drag } from './drag';
 import { Refresh } from './refresh';
 import { RecentSources, searchPicker } from './search';
 import { errorStatus } from './errors';
+import { mask } from './typst';
 
 export async function activate(context: vscode.ExtensionContext) {
   const runner = new Runner();
@@ -76,7 +77,7 @@ export async function activate(context: vscode.ExtensionContext) {
       if (browser === library && !item.ex) item.ex = sourceMetadata(text, source);
       if (browser !== library) {
         item.metadata = [sourceMetadata(text, source)];
-        if (info.direct) {
+        if (info.direct && /#show\s*:\s*feuille\.with\s*\(/.test(mask(text))) {
           try { item.members = await sheetEditor.members(bank, source); item.metadata.push(...item.members.flatMap(member => metadata.get(member.source) ?? [])); }
           catch (error) { item.compositionError = String(error); }
         }
@@ -86,7 +87,9 @@ export async function activate(context: vscode.ExtensionContext) {
     browser.entries = [...browser.entries.filter(entry => entry.bank.root !== bank.root), ...sources.filter((source): source is Source => !!source)];
     update();
   }
+  const hasCatalogue = (bank: Bank) => existsSync(path.join(bank.root, 'scripts/catalogue.py'));
   async function load(bank: Bank): Promise<void> {
+    if (!hasCatalogue(bank)) { await scan(bank, library); return; }
     const catalogue = parseCatalogue(await readFile(path.join(bank.root, 'build/catalogue.json'), 'utf8'));
     const metadata = new Map(catalogue.map(ex => [ex.fichier, ex]));
     await scan(bank, library);
@@ -101,15 +104,14 @@ export async function activate(context: vscode.ExtensionContext) {
       if (folder.uri.scheme !== 'file') continue;
       const configured = vscode.workspace.getConfiguration('mpiExercices', folder.uri).get<string>('bankPath', '');
       const candidate = path.resolve(folder.uri.fsPath, configured || '.');
-      const banque = ['scripts/catalogue.py', 'templates/fiche.typ', 'lib/exercice.typ'];
-      const corrections = ['scripts/copies.py', 'templates/copie.typ', 'lib/copie.typ'];
-      if (!existsSync(path.join(candidate, 'Makefile')) ||
-          ![banque, corrections].some(files => files.every(file => existsSync(path.join(candidate, file))))) continue;
+      if (!existsSync(path.join(candidate, 'Makefile'))) continue;
+      const project = { root: candidate, name: path.basename(candidate), scope: folder.uri };
+      if (!hasCatalogue(project) && !(await documentTemplates(project)).length) continue;
       const root = await realpath(candidate);
       if (seen.has(root)) continue; seen.add(root);
       const bank: Bank = { root, name: path.basename(root), scope: folder.uri }; banks.push(bank);
       try {
-        if (!existsSync(path.join(root, 'build/catalogue.json'))) await runner.run(bank, ['catalogue']);
+        if (hasCatalogue(bank) && !existsSync(path.join(root, 'build/catalogue.json'))) await runner.run(bank, ['catalogue']);
         await load(bank);
       } catch (error) { report(error); await scan(bank, library); }
       await scan(bank, sheets);
@@ -119,7 +121,7 @@ export async function activate(context: vscode.ExtensionContext) {
       catalogue.onDidChange(reload); catalogue.onDidCreate(reload);
       watchers.push(catalogue, { dispose: () => clearTimeout(timer) });
       const refresh = new Refresh(async () => {
-        await runner.run(bank, ['catalogue']);
+        if (hasCatalogue(bank)) await runner.run(bank, ['catalogue']);
         if (disposed || !banks.includes(bank)) return;
         await load(bank);
         await scan(bank, sheets);
@@ -143,7 +145,7 @@ export async function activate(context: vscode.ExtensionContext) {
     update();
     sheetEditor.remember();
     sheetEditor.changed.fire();
-    if (!banks.length) view.message = 'Ouvrez mpi-exercices ou corrections, ou renseignez le réglage Bank Path.';
+    if (!banks.length) view.message = 'Ouvrez un dépôt avec un Makefile et des modèles Typst, ou renseignez le réglage Bank Path.';
   }
   const discoverQueued = () => { discovery = discovery.catch(() => undefined).then(discover); return discovery; };
   async function checkSource(source: Source): Promise<Source> {
@@ -168,7 +170,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const info = identify((await vscode.workspace.openTextDocument(uri)).getText(), source);
         if (info) return checkSource({ bank, source, documentType: info.type });
       }
-      if (argument) throw new Error('Choisissez un exercice exportant ex ou un document utilisant feuille.with(...).');
+      if (argument) throw new Error('Choisissez un exercice exportant ex ou un document déclarant son type.');
     }
     const picked = await vscode.window.showQuickPick(library.visible.map(item => ({ label: item.ex?.titre ?? item.source, description: item.bank.name, detail: item.source, item })), { placeHolder: 'Choisir un exercice', matchOnDetail: true });
     return picked ? checkSource(picked.item) : undefined;
@@ -234,7 +236,7 @@ export async function activate(context: vscode.ExtensionContext) {
     if (source.documentType) sheetEditor.selected = source;
     await sheetView.reveal(source, { select: true, expand: true });
   }
-  register('refresh', async () => { await discovery; if (!banks.length) await discoverQueued(); for (const bank of banks) { await runner.run(bank, ['catalogue']); await load(bank); await scan(bank, sheets); } });
+  register('refresh', async () => { await discovery; if (!banks.length) await discoverQueued(); for (const bank of banks) { if (hasCatalogue(bank)) await runner.run(bank, ['catalogue']); await load(bank); await scan(bank, sheets); } });
   register('source', async (argument?: BrowserNode | vscode.Uri) => { const source = await chooseSource(argument); if (source) await vscode.window.showTextDocument(vscode.Uri.file(path.join(source.bank.root, source.source))); });
   for (const variant of ['enonce', 'corrige'] as const) register(variant, async (argument?: BrowserNode | vscode.Uri) => { const source = await chooseSource(argument); if (source) await previews.open(source.bank, source.source, variant); });
   for (const variant of ['enonce', 'corrige'] as const) register('download' + (variant === 'corrige' ? 'Corrige' : 'Enonce'), async (argument?: BrowserNode | vscode.Uri) => {
@@ -247,7 +249,7 @@ export async function activate(context: vscode.ExtensionContext) {
   register('reveal', reveal);
   register('toggleLibrary', () => library.toggle()); register('toggleSheets', () => sheets.toggle());
   register('newSheet', async (argument?: Location) => { await discovery; const bank = argument?.bank ?? await selectBank(banks); const uri = await newSheet(bank, argument?.bank ? argument.source : undefined); await scan(bank, sheets); const source = sheets.entries.find(item => path.join(bank.root, item.source) === uri.fsPath); if (source) { await revealSheet(source); } });
-  register('newExercise', async (argument?: Location) => { await discovery; const bank = argument?.bank ?? await selectBank(banks); await runner.run(bank, ['catalogue']); await load(bank); const uri = await newExercise(bank, entries(), argument?.source); await runner.run(bank, ['catalogue']); await load(bank); await vscode.window.showTextDocument(uri); });
+  register('newExercise', async (argument?: Location) => { await discovery; const bank = argument?.bank ?? await selectBank(banks.filter(bank => existsSync(path.join(bank.root, 'lib/meta.typ')))); if (!hasCatalogue(bank)) throw new Error('Créer les exercices dans la banque mpi-exercices.'); await runner.run(bank, ['catalogue']); await load(bank); const uri = await newExercise(bank, entries(), argument?.source); await runner.run(bank, ['catalogue']); await load(bank); await vscode.window.showTextDocument(uri); });
   for (const [name, direction] of [['memberUp', -1], ['memberDown', 1], ['memberRemove', undefined]] as const) register(name, async (argument: SheetMember | { member: SheetMember }) => { await sheetEditor.change('member' in argument ? argument.member : argument, direction); });
   register('addCurrent', async (argument?: BrowserNode) => {
     const source = await chooseSource(argument); if (!source) return;

@@ -3,7 +3,7 @@
   "displayName": "Exercices Typst",
   "icon": "media/icon-sidebar.png",
   "description": "Exercices Typst.",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "publisher": "qfortier",
   "license": "UNLICENSED",
   "engines": {
@@ -18,7 +18,8 @@
   ],
   "activationEvents": [
     "workspaceContains:scripts/catalogue.py",
-    "workspaceContains:scripts/copies.py"
+    "workspaceContains:scripts/copies.py",
+    "workspaceContains:templates/**/*.typ"
   ],
   "capabilities": {
     "untrustedWorkspaces": {

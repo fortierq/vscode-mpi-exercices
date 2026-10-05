@@ -95,9 +95,16 @@ export function exerciseFromTemplate(template: string, data: NewExercise): strin
   };
   // Keep strings and raw code intact; comments belong to the model, not the new exercise.
   let result = mask(template, false, false);
+  const optional = new Set(['algorithmes', 'structures', 'langages', 'concours']);
   for (const [key, value] of Object.entries(fields)) {
     const pattern = new RegExp(`(^[ \\t]*${key}:)[^\\n]*`, 'm');
-    if (!pattern.test(result)) throw new Error(`Modèle incompatible : champ ${key} absent.`);
+    if (!pattern.test(result)) {
+      const meta = /\bmeta\s*:\s*\(/.exec(mask(result));
+      if (!optional.has(key) || !meta) throw new Error(`Modèle incompatible : champ ${key} absent.`);
+      const offset = meta.index + meta[0].length;
+      result = result.slice(0, offset) + `\n    ${key}: ${value},` + result.slice(offset);
+      continue;
+    }
     result = result.replace(pattern, (_match, prefix) => `${prefix} ${value},`);
   }
   const content = /(^[ \t]*contenu:\s*)\(/m.exec(mask(result));

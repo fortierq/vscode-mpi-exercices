@@ -21,9 +21,9 @@ async function select(title: string, values: string[], required = false): Promis
 }
 
 export async function selectBank(banks: Bank[]): Promise<Bank> {
-  if (!banks.length) throw new Error("Ouvrez d'abord une banque mpi-exercices.");
+  if (!banks.length) throw new Error("Ouvrez d'abord un dépôt de documents Typst.");
   if (banks.length === 1) return banks[0];
-  const chosen = await vscode.window.showQuickPick(banks.map(bank => ({ label: bank.name, description: bank.root, bank })), { title: 'Choisir une banque' });
+  const chosen = await vscode.window.showQuickPick(banks.map(bank => ({ label: bank.name, description: bank.root, bank })), { title: 'Choisir un dépôt' });
   return chosen?.bank ?? canceled();
 }
 
@@ -97,7 +97,7 @@ export async function documentTemplates(bank: Bank): Promise<{ label: string; de
 
 export async function newSheet(bank: Bank, directory?: string): Promise<vscode.Uri> {
   const templates = await documentTemplates(bank);
-  if (!templates.length) throw new Error('Ajoutez un modèle utilisant feuille.with(type: "…", ...) dans templates/.');
+  if (!templates.length) throw new Error('Ajoutez un modèle déclarant son type dans templates/.');
   const template = await vscode.window.showQuickPick(templates, { title: 'Type de feuille / modèle' }) ?? canceled();
   const title = await input('Titre de la feuille', template.type === 'td' ? 'Travaux dirigés' : template.label);
   directory ??= await chooseDirectory();
