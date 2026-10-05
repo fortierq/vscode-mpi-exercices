@@ -17,7 +17,7 @@ import { relocated, moveSource, directories } from '../src/files';
 import { sheetList, sourceMetadata } from '../src/sheet-model';
 import { Drag } from '../src/drag';
 import { documentTemplates } from '../src/authoring';
-import { identify } from '../src/documents';
+import { identify, sourceExclusions } from '../src/documents';
 
 async function until(condition: () => boolean | Promise<boolean>, message: string): Promise<void> {
   const deadline = Date.now() + 20_000;
@@ -67,6 +67,31 @@ export async function run(): Promise<void> {
     return;
   }
   assert.ok(api.getEntries().length > 0, 'Banque détectée avec lib/exercice.typ');
+  if (process.env.MPI_ORGANISATION_TEST) {
+    const bank = process.env.MPI_EXERCICES_BANK!;
+    const grammaires = 'exercices/langages/grammaires-lineaires/grammaires-lineaires.typ';
+    assert.ok(api.getEntries().some((entry: Exercise) => entry.fichier === grammaires), 'Exercice découvert avec son code dans le même dossier');
+    assert.ok(!api.getEntries().some((entry: Exercise) => entry.fichier.startsWith('lib/tests/')), 'Tests de bibliothèque exclus du catalogue');
+    const visibles = await vscode.workspace.findFiles('**/*.typ', sourceExclusions);
+    assert.ok(!visibles.some(uri => path.relative(bank, uri.fsPath).split(path.sep).join('/').startsWith('lib/tests/')), 'Tests de bibliothèque exclus des vues VS Code');
+    for (const source of [
+      'concours/17/centrale-2017-mp-informatique/centrale-2017-mp-informatique.typ',
+      'concours/18/oral/ens-2018-mp-reparation-langage/ens-2018-mp-reparation-langage.typ',
+      'concours/19/mines-ponts-2019-mp-informatique/mines-ponts-2019-mp-informatique.typ',
+      'concours/22/centrale-2022-mp-informatique/centrale-2022-mp-informatique.typ',
+    ]) assert.equal((await api.revealSheet(source)).source, source, 'Sujet découvert dans son dossier');
+    const migrationRunner = new Runner();
+    try {
+      const project = { root: bank, name: 'Banque réorganisée', scope: vscode.Uri.file(bank) };
+      for (const source of [grammaires, 'concours/19/mines-ponts-2019-mp-informatique/mines-ponts-2019-mp-informatique.typ']) {
+        await migrationRunner.run(project, ['c', source]);
+        for (const variant of ['enonce', 'corrige'])
+          assert.ok((await stat(path.join(bank, 'build', source.slice(0, -4), variant + '.pdf'))).size > 0);
+      }
+    } finally { migrationRunner.dispose(); }
+    console.log('Organisation : catalogue, sujets imbriqués et exports vérifiés, sans lecture des PDF.');
+    return;
+  }
   const manifest = extension.packageJSON.contributes;
   const commands = await vscode.commands.getCommands(true);
   assert.deepEqual(manifest.views.mpiExercices.map((view: { id: string }) => view.id), ['mpiExercices.current', 'mpiExercices.library', 'mpiExercices.sheets']);

@@ -46,6 +46,9 @@ La sauvegarde exporte le PDF courant ; **Exporter les PDF énoncé et corrigé**
 
 Entrer dans l'environnement avec `nix develop`, puis utiliser
 `npm ci` · `npm test` · `npm run test:integration` · `npm run package`.
+`npm run test:integration -- --organisation` vérifie la découverte des sujets
+avec leurs fichiers associés, l'exclusion de `lib/tests/` et les exports PDF
+depuis la banque réorganisée, sans ouvrir les PDF.
 `flake.lock` fixe les versions des outils, dont Node 22.
 
 Depuis le terminal habituel, `make check` lance les tests avec Nix et

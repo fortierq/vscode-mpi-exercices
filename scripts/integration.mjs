@@ -15,5 +15,5 @@ await runTests({
   extensionTestsPath: path.join(root, 'dist/integration.js'),
   vscodeExecutablePath: process.env.VSCODE_EXECUTABLE,
   launchArgs: [bank, '--disable-extensions', '--disable-workspace-trust', '--skip-welcome', '--skip-release-notes', '--user-data-dir', userData],
-  extensionTestsEnv: { MPI_EXERCICES_BANK: bank, PREVIEW_REVIEW: process.env.PREVIEW_REVIEW ?? '', MPI_CORRECTIONS_TEST: process.env.MPI_CORRECTIONS_TEST ?? '' }
+  extensionTestsEnv: { MPI_EXERCICES_BANK: bank, PREVIEW_REVIEW: process.env.PREVIEW_REVIEW ?? '', MPI_CORRECTIONS_TEST: process.env.MPI_CORRECTIONS_TEST ?? '', MPI_ORGANISATION_TEST: process.argv.includes('--organisation') ? '1' : '' }
 });
