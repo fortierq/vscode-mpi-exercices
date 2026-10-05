@@ -36,7 +36,7 @@ async function pdf(data) {
     if (revision === epoch) vscode.postMessage({ type: 'pdfReady', pages: doc.numPages });
   } finally { await loading.destroy(); worker.destroy(); port.terminate(); URL.revokeObjectURL(url); }
 }
-for (const id of ['enonce', 'corrige', 'save', 'jumps', 'theme', 'restart']) {
+for (const id of ['enonce', 'corrige', 'save', 'jumps', 'theme', 'fullscreen', 'restart']) {
   document.getElementById(id).onclick = () => vscode.postMessage({ type: id });
 }
 window.addEventListener('message', ({ data }) => {
